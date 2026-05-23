@@ -361,10 +361,16 @@ class AlarmReceiver : BroadcastReceiver() {
         try {
             stopAdzanAudio() // yakinkan dibersihkan terlebih dahulu
 
+            val prefs = context.getSharedPreferences("adzan_prefs", Context.MODE_PRIVATE)
+            val isAlarmEnabled = prefs.getBoolean("enable_adzan_alarm", true)
+            if (!isAlarmEnabled) {
+                Log.d("AlarmReceiver", "Alarm adzan dinonaktifkan di pengaturan.")
+                return
+            }
+
             val audioFileName = if (isFajr) "adzan_fajrd.mp3" else "adzan.mp3"
             val file = File(context.filesDir, audioFileName)
 
-            val prefs = context.getSharedPreferences("adzan_prefs", Context.MODE_PRIVATE)
             val prefKey = if (isFajr) "custom_adzan_fajr_name" else "custom_adzan_name"
             val hasCustom = prefs.getString(prefKey, null) != null
 

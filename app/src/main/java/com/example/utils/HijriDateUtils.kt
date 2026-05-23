@@ -139,33 +139,44 @@ object HijriDateUtils {
         val cal = Calendar.getInstance()
         cal.set(Calendar.HOUR_OF_DAY, 0)
         cal.set(Calendar.MINUTE, 0)
+        cal.set(Calendar.SECOND, 0)
+        cal.set(Calendar.MILLISECOND, 0)
         
-        // Lakukan pencarian kasar tanggal Masehi untuk tanggal 1 Hijriah
-        var foundDate = false
-        val searchCal = Calendar.getInstance()
-        searchCal.add(Calendar.MONTH, -6) // Cari dari 6 bulan ke belakang
-        
-        for (i in 1..400) {
-            val hd = convertToHijri(searchCal)
-            if (hd.month == hMonth && hd.year == hYear && hd.day == 1) {
-                cal.timeInMillis = searchCal.timeInMillis
-                foundDate = true
-                break
+        var totalDays = 29
+        try {
+            val hijrahDate = HijrahDate.of(hYear, hMonth, 1)
+            val epochDay = hijrahDate.toEpochDay()
+            val localDate = LocalDate.ofEpochDay(epochDay)
+            cal.set(Calendar.YEAR, localDate.year)
+            cal.set(Calendar.MONTH, localDate.monthValue - 1)
+            cal.set(Calendar.DAY_OF_MONTH, localDate.dayOfMonth)
+            totalDays = hijrahDate.lengthOfMonth()
+        } catch (e: Exception) {
+            // fallback kasar jika terjadi error atau tahun/bulan di luar batas
+            var foundDate = false
+            val searchCal = Calendar.getInstance()
+            searchCal.add(Calendar.MONTH, -6) // Cari dari 6 bulan ke belakang
+            
+            for (i in 1..400) {
+                val hd = convertToHijri(searchCal)
+                if (hd.month == hMonth && hd.year == hYear && hd.day == 1) {
+                    cal.timeInMillis = searchCal.timeInMillis
+                    foundDate = true
+                    break
+                }
+                searchCal.add(Calendar.DAY_OF_YEAR, 1)
             }
-            searchCal.add(Calendar.DAY_OF_YEAR, 1)
-        }
 
-        if (!foundDate) {
-            // fallback kasar
-            cal.set(Calendar.DAY_OF_MONTH, 1)
-        }
+            if (!foundDate) {
+                cal.set(Calendar.DAY_OF_MONTH, 1)
+            }
 
-        // Tentukan jumlah hari total bulan Hijriah ini (Bulan ganjil 30 hari, genap 29 hari)
-        val isLeap = (11 * hYear + 14) % 30 < 11
-        val totalDays = when {
-            hMonth == 12 -> if (isLeap) 30 else 29
-            hMonth % 2 == 1 -> 30
-            else -> 29
+            val isLeap = (11 * hYear + 14) % 30 < 11
+            totalDays = when {
+                hMonth == 12 -> if (isLeap) 30 else 29
+                hMonth % 2 == 1 -> 30
+                else -> 29
+            }
         }
 
         // Cari tahu hari pertama di grid (Sunday = 1, Monday = 2, dst)

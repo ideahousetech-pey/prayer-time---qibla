@@ -38,6 +38,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -102,6 +105,11 @@ fun HomeScreen(
     val userLocation by locationViewModel.userLocation.collectAsState()
     val isLoadingLoc by locationViewModel.isLoading.collectAsState()
 
+    val context = LocalContext.current
+    val adzanPrefs = remember { context.getSharedPreferences("adzan_prefs", Context.MODE_PRIVATE) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    var enableDailyReminder by remember { mutableStateOf(adzanPrefs.getBoolean("enable_daily_reminder", true)) }
+
     // Root Box is transparent to reveal the majestic repeating Islamic pattern below
     Box(
         modifier = modifier.fillMaxSize()
@@ -112,10 +120,11 @@ fun HomeScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 80.dp) // Berikan jarak aman bagi Bottom Navigation
         ) {
-            // 1. Header Area: Tanpa logo / tombol aksi kanan, murni fokus informasi tanggal realtime
+            // 1. Header Area: Dilengkapi tombol gir pengaturan di pojok kanan atas
             HeaderSection(
                 gregorianDate = todayGregorian,
-                hijriDate = todayHijri
+                hijriDate = todayHijri,
+                onSettingsClick = { showSettingsDialog = true }
             )
 
             // 2. Location Area: Realtime name with GPS Refresh Button
@@ -204,11 +213,11 @@ fun HomeScreen(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-            AdzanSoundSettingsCard()
-            Spacer(modifier = Modifier.height(8.dp))
             
-            // 6. Quick Daily Reminder Note Card
-            ReminderNoteCard()
+            if (enableDailyReminder) {
+                // 6. Quick Daily Reminder Note Card
+                ReminderNoteCard()
+            }
         }
 
         // 7. PopUp Dialog Hari Besar Islam
@@ -218,30 +227,64 @@ fun HomeScreen(
                 onDismiss = { prayerViewModel.dismissHolidayPopUp() }
             )
         }
+
+        // 8. Dialog Pengaturan Aplikasi kustom
+        if (showSettingsDialog) {
+            SettingsDialog(
+                onDismiss = { showSettingsDialog = false },
+                onReminderToggle = { enabled ->
+                    enableDailyReminder = enabled
+                }
+            )
+        }
     }
 }
 
 @Composable
-fun HeaderSection(gregorianDate: String, hijriDate: String) {
-    Column(
+fun HeaderSection(
+    gregorianDate: String,
+    hijriDate: String,
+    onSettingsClick: () -> Unit
+) {
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 24.dp, start = 16.dp, end = 16.dp, bottom = 8.dp)
+            .padding(top = 24.dp, start = 16.dp, end = 16.dp, bottom = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = gregorianDate,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Light,
-            color = Color(0xFFB2DFDB) // Soft light-teal theme text
-        )
-        Text(
-            text = hijriDate,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Black,
-            letterSpacing = (-0.5).sp,
-            color = MaterialTheme.colorScheme.primary, // Glorious Gold Accent
-            modifier = Modifier.padding(top = 2.dp)
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = gregorianDate,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Light,
+                color = Color(0xFFB2DFDB) // Soft light-teal theme text
+            )
+            Text(
+                text = hijriDate,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = (-0.5).sp,
+                color = MaterialTheme.colorScheme.primary, // Glorious Gold Accent
+                modifier = Modifier.padding(top = 2.dp)
+            )
+        }
+
+        IconButton(
+            onClick = onSettingsClick,
+            modifier = Modifier
+                .size(40.dp)
+                .background(Color.White.copy(alpha = 0.08f), CircleShape)
+                .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape)
+                .testTag("settings_button")
+        ) {
+            Icon(
+                imageVector = Icons.Default.Settings,
+                contentDescription = "Pengaturan",
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
     }
 }
 
@@ -678,13 +721,19 @@ fun HolidayDialog(
 }
 
 @Composable
-fun AdzanSoundSettingsCard() {
+fun SettingsDialog(
+    onDismiss: () -> Unit,
+    onReminderToggle: (Boolean) -> Unit
+) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("adzan_prefs", Context.MODE_PRIVATE) }
-    
+
+    var isAlarmEnabled by remember { mutableStateOf(prefs.getBoolean("enable_adzan_alarm", true)) }
+    var isDailyReminderEnabled by remember { mutableStateOf(prefs.getBoolean("enable_daily_reminder", true)) }
+
     var customAdzanName by remember { mutableStateOf(prefs.getString("custom_adzan_name", null)) }
     var customAdzanFajrName by remember { mutableStateOf(prefs.getString("custom_adzan_fajr_name", null)) }
-    
+
     var player: MediaPlayer? by remember { mutableStateOf(null) }
     var activePreview by remember { mutableStateOf<String?>(null) } // "umum" or "fajr" or null
 
@@ -699,7 +748,7 @@ fun AdzanSoundSettingsCard() {
             player?.stop()
             player?.release()
             player = null
-            
+
             val file = File(context.filesDir, fileName)
             if (file.exists()) {
                 player = MediaPlayer().apply {
@@ -798,212 +847,345 @@ fun AdzanSoundSettingsCard() {
         uri?.let { saveAudioFile(it, isFajr = true) }
     }
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .border(
-                width = 1.dp,
-                color = Color.White.copy(alpha = 0.15f),
-                shape = RoundedCornerShape(20.dp)
-            ),
-        colors = CardDefaults.cardColors(
-            containerColor = Color.White.copy(alpha = 0.06f)
-        ),
-        shape = RoundedCornerShape(20.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp)
+                .border(2.dp, Color(0xFFD4AF37), RoundedCornerShape(24.dp)),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF00332C))
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 12.dp)
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
-                Icon(
-                    imageVector = Icons.Default.VolumeUp,
-                    contentDescription = "Pengaturan Adzan",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(22.dp)
+                // Header Dialog
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Pengaturan",
+                            tint = Color(0xFFD4AF37),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Pengaturan Aplikasi",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Tutup",
+                            tint = Color.White.copy(alpha = 0.6f)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Section 1: Aktivasi Alarm Adzan
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(12.dp))
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Suara Alarm Adzan",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Putar adzan saat waktu sholat tiba",
+                            fontSize = 11.sp,
+                            color = Color(0xFFB2DFDB)
+                        )
+                    }
+                    Switch(
+                        checked = isAlarmEnabled,
+                        onCheckedChange = { checked ->
+                            prefs.edit().putBoolean("enable_adzan_alarm", checked).apply()
+                            isAlarmEnabled = checked
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color(0xFF00332C),
+                            checkedTrackColor = Color(0xFFD4AF37),
+                            uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
+                            uncheckedTrackColor = Color.White.copy(alpha = 0.1f)
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Section 2: Aktivasi Kutipan Harian
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(12.dp))
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Kutipan Amalan Harian",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Tampilkan hikmah sholat di layar utama",
+                            fontSize = 11.sp,
+                            color = Color(0xFFB2DFDB)
+                        )
+                    }
+                    Switch(
+                        checked = isDailyReminderEnabled,
+                        onCheckedChange = { checked ->
+                            prefs.edit().putBoolean("enable_daily_reminder", checked).apply()
+                            isDailyReminderEnabled = checked
+                            onReminderToggle(checked)
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color(0xFF00332C),
+                            checkedTrackColor = Color(0xFFD4AF37),
+                            uncheckedThumbColor = Color.White.copy(alpha = 0.6f),
+                            uncheckedTrackColor = Color.White.copy(alpha = 0.1f)
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Label Section Suara
+                Text(
+                    text = "PILIHAN SUARA ADZAN",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFD4AF37),
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
                 )
-                Spacer(modifier = Modifier.width(10.dp))
-                Column {
-                    Text(
-                        text = "Pengaturan Suara Adzan",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Text(
-                        text = "Unggah file MP3/WAV adzan pilihan Anda",
-                        fontSize = 11.sp,
-                        color = Color(0xFFB2DFDB)
-                    )
-                }
-            }
 
-            // Row 1: Adzan Umum
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-                    .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(12.dp))
-                    .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Adzan Umum (Biasa)",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Text(
-                        text = customAdzanName ?: "Nada Bawaan Aplikasi",
-                        fontSize = 11.sp,
-                        color = if (customAdzanName != null) Color(0xFFD4AF37) else Color.White.copy(alpha = 0.6f),
-                        maxLines = 1
-                    )
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    // Play / Stop button
-                    IconButton(
-                        onClick = {
-                            if (activePreview == "umum") {
-                                stopPreview()
-                            } else {
-                                playPreview("adzan.mp3", "umum")
-                            }
-                        },
-                        modifier = Modifier
-                            .size(34.dp)
-                            .background(Color.White.copy(alpha = 0.1f), CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = if (activePreview == "umum") Icons.Default.Stop else Icons.Default.PlayArrow,
-                            contentDescription = "Mainkan",
-                            tint = if (activePreview == "umum") Color.Red else Color.White,
-                            modifier = Modifier.size(16.dp)
+                // Row 1: Adzan Umum
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(12.dp))
+                        .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Adzan Umum (Biasa)",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = customAdzanName ?: "Nada Bawaan Aplikasi",
+                            fontSize = 11.sp,
+                            color = if (customAdzanName != null) Color(0xFFD4AF37) else Color.White.copy(alpha = 0.6f),
+                            maxLines = 1
                         )
                     }
 
-                    // Upload button
-                    IconButton(
-                        onClick = { launcherUmum.launch("audio/*") },
-                        modifier = Modifier
-                            .size(34.dp)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Upload,
-                            contentDescription = "Unggah",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-
-                    // Delete button
-                    if (customAdzanName != null) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         IconButton(
-                            onClick = { deleteCustomAudio(isFajr = false) },
+                            onClick = {
+                                if (activePreview == "umum") {
+                                    stopPreview()
+                                } else {
+                                    playPreview("adzan.mp3", "umum")
+                                }
+                            },
                             modifier = Modifier
                                 .size(34.dp)
-                                .background(Color.Red.copy(alpha = 0.15f), CircleShape)
+                                .background(Color.White.copy(alpha = 0.1f), CircleShape)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Hapus",
-                                tint = Color.Red,
+                                imageVector = if (activePreview == "umum") Icons.Default.Stop else Icons.Default.PlayArrow,
+                                contentDescription = "Mainkan",
+                                tint = if (activePreview == "umum") Color.Red else Color.White,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
-                    }
-                }
-            }
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Row 2: Adzan Subuh
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-                    .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(12.dp))
-                    .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Adzan Khusus Subuh",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
-                    )
-                    Text(
-                        text = customAdzanFajrName ?: "Nada Bawaan Aplikasi",
-                        fontSize = 11.sp,
-                        color = if (customAdzanFajrName != null) Color(0xFFD4AF37) else Color.White.copy(alpha = 0.6f),
-                        maxLines = 1
-                    )
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    // Play / Stop button
-                    IconButton(
-                        onClick = {
-                            if (activePreview == "fajr") {
-                                stopPreview()
-                            } else {
-                                playPreview("adzan_fajrd.mp3", "fajr")
-                            }
-                        },
-                        modifier = Modifier
-                            .size(34.dp)
-                            .background(Color.White.copy(alpha = 0.1f), CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = if (activePreview == "fajr") Icons.Default.Stop else Icons.Default.PlayArrow,
-                            contentDescription = "Mainkan",
-                            tint = if (activePreview == "fajr") Color.Red else Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-
-                    // Upload button
-                    IconButton(
-                        onClick = { launcherFajr.launch("audio/*") },
-                        modifier = Modifier
-                            .size(34.dp)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Upload,
-                            contentDescription = "Unggah",
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-
-                    // Delete button
-                    if (customAdzanFajrName != null) {
                         IconButton(
-                            onClick = { deleteCustomAudio(isFajr = true) },
+                            onClick = { launcherUmum.launch("audio/*") },
                             modifier = Modifier
                                 .size(34.dp)
-                                .background(Color.Red.copy(alpha = 0.15f), CircleShape)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), CircleShape)
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Hapus",
-                                tint = Color.Red,
+                                imageVector = Icons.Default.Upload,
+                                contentDescription = "Unggah",
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(16.dp)
                             )
                         }
+
+                        if (customAdzanName != null) {
+                            IconButton(
+                                onClick = { deleteCustomAudio(isFajr = false) },
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .background(Color.Red.copy(alpha = 0.15f), CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Hapus",
+                                    tint = Color.Red,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
                     }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Row 2: Adzan Subuh
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                        .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(12.dp))
+                        .border(1.dp, Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Adzan Khusus Subuh",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                        Text(
+                            text = customAdzanFajrName ?: "Nada Bawaan Aplikasi",
+                            fontSize = 11.sp,
+                            color = if (customAdzanFajrName != null) Color(0xFFD4AF37) else Color.White.copy(alpha = 0.6f),
+                            maxLines = 1
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        IconButton(
+                            onClick = {
+                                if (activePreview == "fajr") {
+                                    stopPreview()
+                                } else {
+                                    playPreview("adzan_fajrd.mp3", "fajr")
+                                }
+                            },
+                            modifier = Modifier
+                                .size(34.dp)
+                                .background(Color.White.copy(alpha = 0.1f), CircleShape)
+                        ) {
+                            Icon(
+                                imageVector = if (activePreview == "fajr") Icons.Default.Stop else Icons.Default.PlayArrow,
+                                contentDescription = "Mainkan",
+                                tint = if (activePreview == "fajr") Color.Red else Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        IconButton(
+                            onClick = { launcherFajr.launch("audio/*") },
+                            modifier = Modifier
+                                .size(34.dp)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), CircleShape)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Upload,
+                                contentDescription = "Unggah",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        if (customAdzanFajrName != null) {
+                            IconButton(
+                                onClick = { deleteCustomAudio(isFajr = true) },
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .background(Color.Red.copy(alpha = 0.15f), CircleShape)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Hapus",
+                                    tint = Color.Red,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Section Info Aplikasi
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
+                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.02f)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "INFO APLIKASI",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFD4AF37),
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Waktu Sholat & Kiblat v1.0.2\nMari Tegakkan Sholat Tepat Waktu.",
+                            fontSize = 11.sp,
+                            color = Color(0xFFB2DFDB),
+                            lineHeight = 15.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFD4AF37),
+                        contentColor = Color(0xFF00332C)
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Simpan & Kembali",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
                 }
             }
         }
