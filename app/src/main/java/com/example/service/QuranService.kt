@@ -1,0 +1,73 @@
+package com.example.service
+
+import com.example.ui.QuranVerse
+import com.squareup.moshi.Json
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import retrofit2.Retrofit
+import retrofit2.converter.moshi.MoshiConverterFactory
+import retrofit2.http.GET
+import retrofit2.http.Path
+import java.util.concurrent.TimeUnit
+
+class QuranService {
+
+    private val httpClient = OkHttpClient.Builder()
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(15, TimeUnit.SECONDS)
+        .build()
+
+    private val equranApi = Retrofit.Builder()
+        .baseUrl("https://equran.id/")
+        .client(httpClient)
+        .addConverterFactory(MoshiConverterFactory.create())
+        .build()
+        .create(EQuranApi::class.java)
+
+    suspend fun getSurahDetail(number: Int): List<QuranVerse>? = withContext(Dispatchers.IO) {
+        try {
+            val response = equranApi.getSurahDetail(number)
+            if (response.code == 200 && response.data != null) {
+                return@withContext response.data.ayat.map { item ->
+                    QuranVerse(
+                        verseNumber = item.nomorAyat,
+                        arabic = item.teksArab,
+                        latin = item.teksLatin,
+                        translation = item.teksIndonesia
+                    )
+                }
+            }
+            null
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+}
+
+interface EQuranApi {
+    @GET("api/v2/surat/{number}")
+    suspend fun getSurahDetail(@Path("number") number: Int): EQuranResponse
+}
+
+data class EQuranResponse(
+    @Json(name = "code") val code: Int,
+    @Json(name = "message") val message: String,
+    @Json(name = "data") val data: EQuranSuratDetail?
+)
+
+data class EQuranSuratDetail(
+    @Json(name = "nomor") val nomor: Int,
+    @Json(name = "nama") val nama: String,
+    @Json(name = "namaLatin") val namaLatin: String,
+    @Json(name = "jumlahAyat") val jumlahAyat: Int,
+    @Json(name = "ayat") val ayat: List<EQuranAyat>
+)
+
+data class EQuranAyat(
+    @Json(name = "nomorAyat") val nomorAyat: Int,
+    @Json(name = "teksArab") val teksArab: String,
+    @Json(name = "teksLatin") val teksLatin: String,
+    @Json(name = "teksIndonesia") val teksIndonesia: String
+)

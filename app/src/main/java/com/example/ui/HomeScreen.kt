@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -188,7 +189,12 @@ fun HomeScreen(
         // 8. Dialog Pengaturan Aplikasi kustom
         if (showSettingsDialog) {
             SettingsDialog(
-                onDismiss = { showSettingsDialog = false },
+                onDismiss = {
+                    showSettingsDialog = false
+                    userLocation?.let {
+                        prayerViewModel.loadPrayerTimesForLocation(it.latitude, it.longitude)
+                    }
+                },
                 onReminderToggle = { enabled ->
                     enableDailyReminder = enabled
                 }
@@ -764,6 +770,7 @@ fun SettingsDialog(
 
     var isAlarmEnabled by remember { mutableStateOf(prefs.getBoolean("enable_adzan_alarm", true)) }
     var isDailyReminderEnabled by remember { mutableStateOf(prefs.getBoolean("enable_daily_reminder", true)) }
+    var prayerOffset by remember { mutableStateOf(prefs.getInt("prayer_time_offset", 0)) }
 
     var customAdzanName by remember { mutableStateOf(prefs.getString("custom_adzan_name", null)) }
     var customAdzanFajrName by remember { mutableStateOf(prefs.getString("custom_adzan_fajr_name", null)) }
@@ -1002,6 +1009,79 @@ fun SettingsDialog(
                             uncheckedTrackColor = Color.White.copy(alpha = 0.1f)
                         )
                     )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Section 3: Koreksi Waktu Sholat
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = "Koreksi Waktu Sholat (Menit)",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                    Text(
+                        text = "Sesuaikan jadwal sholat agar cocok dengan masjid setempat",
+                        fontSize = 11.sp,
+                        color = Color(0xFFB2DFDB),
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = {
+                                if (prayerOffset > -15) {
+                                    prayerOffset -= 1
+                                    prefs.edit().putInt("prayer_time_offset", prayerOffset).apply()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.White.copy(alpha = 0.12f),
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text("-1", fontWeight = FontWeight.Black, fontSize = 14.sp)
+                        }
+
+                        Text(
+                            text = if (prayerOffset == 0) "Sesuai Standar" else if (prayerOffset > 0) "+$prayerOffset Menit (Maju)" else "$prayerOffset Menit (Mundur)",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        Button(
+                            onClick = {
+                                if (prayerOffset < 15) {
+                                    prayerOffset += 1
+                                    prefs.edit().putInt("prayer_time_offset", prayerOffset).apply()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color.White.copy(alpha = 0.12f),
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier.height(32.dp)
+                        ) {
+                            Text("+1", fontWeight = FontWeight.Black, fontSize = 14.sp)
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))

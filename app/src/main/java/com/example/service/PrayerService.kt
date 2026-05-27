@@ -55,6 +55,9 @@ class PrayerService(private val context: Context) {
         year: Int,
         method: Int = 20 // Method 20 = Kementerian Agama RI (Kemenag, ideal untuk Indonesia), Method 3 = MWL
     ): List<PrayerTime> = withContext(Dispatchers.IO) {
+        val sharedPrefs = context.getSharedPreferences("adzan_prefs", Context.MODE_PRIVATE)
+        val offset = sharedPrefs.getInt("prayer_time_offset", 0)
+
         try {
             val response = aladhanApi.getMonthlyCalendar(
                 latitude = latitude,
@@ -64,16 +67,19 @@ class PrayerService(private val context: Context) {
                 method = method
             )
             if (response.code == 200 && response.data != null) {
-                return@withContext response.data.map { item ->
+                val list = response.data.map { item ->
                     mapApiItemToPrayerTime(item)
                 }
+                return@withContext list.map { applyOffsetToPrayerTime(it, offset) }
             } else {
                 Log.w("PrayerService", "API respons tidak sukses, menggunakan perhitungan astronomis lokal")
-                return@withContext calculateOfflineMonthlyPrayerTimes(latitude, longitude, month, year)
+                val list = calculateOfflineMonthlyPrayerTimes(latitude, longitude, month, year)
+                return@withContext list
             }
         } catch (e: Exception) {
             Log.e("PrayerService", "Gagal fetch API jadwal sholat: ${e.message}", e)
-            return@withContext calculateOfflineMonthlyPrayerTimes(latitude, longitude, month, year)
+            val list = calculateOfflineMonthlyPrayerTimes(latitude, longitude, month, year)
+            return@withContext list
         }
     }
 
@@ -206,19 +212,53 @@ class PrayerService(private val context: Context) {
             val hourAngleAsr = getHourAngle(asrAngleVal, latitude, declination)
             val asrTimeAndHour = baseDhuhr + (hourAngleAsr / 15.0)
 
+            val sharedPrefs = context.getSharedPreferences("adzan_prefs", Context.MODE_PRIVATE)
+            val offsetVal = sharedPrefs.getInt("prayer_time_offset", 0)
+
             days.add(
-                PrayerTime(
-                    dateGregorian = dateStr,
-                    dateHijri = hijriDays,
-                    fajr = formatDoubleToTimeString(fajrTimeAndHour),
-                    dhuhr = formatDoubleToTimeString(baseDhuhr),
-                    asr = formatDoubleToTimeString(asrTimeAndHour),
-                    maghrib = formatDoubleToTimeString(maghribTimeAndHour),
-                    isha = formatDoubleToTimeString(ishaTimeAndHour)
+                applyOffsetToPrayerTime(
+                    PrayerTime(
+                        dateGregorian = dateStr,
+                        dateHijri = hijriDays,
+                        fajr = formatDoubleToTimeString(fajrTimeAndHour),
+                        dhuhr = formatDoubleToTimeString(baseDhuhr),
+                        asr = formatDoubleToTimeString(asrTimeAndHour),
+                        maghrib = formatDoubleToTimeString(maghribTimeAndHour),
+                        isha = formatDoubleToTimeString(ishaTimeAndHour)
+                    ),
+                    offsetVal
                 )
             )
         }
         return days
+    }
+
+    private fun applyOffsetToPrayerTime(time: PrayerTime, offsetMinutes: Int): PrayerTime {
+        if (offsetMinutes == 0) return time
+        return PrayerTime(
+            dateGregorian = time.dateGregorian,
+            dateHijri = time.dateHijri,
+            fajr = adjustTimeStr(time.fajr, offsetMinutes),
+            dhuhr = adjustTimeStr(time.dhuhr, offsetMinutes),
+            asr = adjustTimeStr(time.asr, offsetMinutes),
+            maghrib = adjustTimeStr(time.maghrib, offsetMinutes),
+            isha = adjustTimeStr(time.isha, offsetMinutes)
+        )
+    }
+
+    private fun adjustTimeStr(timeStr: String, offsetMinutes: Int): String {
+        return try {
+            val parts = timeStr.trim().split(":")
+            val h = parts[0].toInt()
+            val m = parts[1].toInt()
+            val totalMinutes = h * 60 + m + offsetMinutes
+            val adjustedMinutes = (totalMinutes + 24 * 60) % (24 * 60)
+            val newH = adjustedMinutes / 60
+            val newM = adjustedMinutes % 60
+            "%02d:%02d".format(Locale.US, newH, newM)
+        } catch (e: Exception) {
+            timeStr
+        }
     }
 
     private fun getJulianDate(year: Int, month: Int, day: Int): Double {

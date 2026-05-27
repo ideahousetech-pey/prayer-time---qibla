@@ -18,6 +18,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -225,8 +226,25 @@ fun QuranScreen(
         } else {
             // VIEW DETAIL AYAT SURAH
             val activeSurah = selectedSurah!!
-            val verses = remember(activeSurah.number) { getVersesForSurah(activeSurah.number, activeSurah) }
             val isBookmarked = (activeSurah.number == bookmarkedSurahNumber)
+
+            var versesList by remember { mutableStateOf<List<QuranVerse>>(emptyList()) }
+            var isLoadingVerses by remember { mutableStateOf(true) }
+            var isOfflineMode by remember { mutableStateOf(false) }
+
+            LaunchedEffect(activeSurah.number) {
+                isLoadingVerses = true
+                isOfflineMode = false
+                val quranService = com.example.service.QuranService()
+                val fetched = quranService.getSurahDetail(activeSurah.number)
+                if (fetched != null && fetched.isNotEmpty()) {
+                    versesList = fetched
+                } else {
+                    versesList = getVersesForSurah(activeSurah.number, activeSurah)
+                    isOfflineMode = true
+                }
+                isLoadingVerses = false
+            }
 
             Column(
                 modifier = Modifier.fillMaxSize()
@@ -342,15 +360,64 @@ fun QuranScreen(
                     }
                 }
 
-                // List Ayat per Ayat
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(verses) { verse ->
-                        VerseItemCard(verse = verse)
+                if (isLoadingVerses) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Mengunduh ayat lengkap...",
+                                color = Color.White.copy(alpha = 0.6f),
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                } else {
+                    if (isOfflineMode) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp, horizontal = 2.dp)
+                                .border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFD4AF37).copy(alpha = 0.05f)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Info,
+                                    contentDescription = "Mode Luring",
+                                    tint = Color(0xFFD4AF37),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Mode Luring. Hubungkan internet untuk memuat seluruh ${activeSurah.totalVerses} ayat.",
+                                    fontSize = 11.sp,
+                                    color = Color.White.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    // List Ayat per Ayat
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(versesList) { verse ->
+                            VerseItemCard(verse = verse)
+                        }
                     }
                 }
             }
