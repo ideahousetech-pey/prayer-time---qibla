@@ -47,6 +47,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material.icons.filled.VolumeOff
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -143,74 +147,10 @@ fun HomeScreen(
 
             // 3. Main Board: Next Prayer Card with ticking live countdown in HH:mm:ss
             NextPrayerCard(
-                label = nextLabel,
-                timeStr = nextTime,
+                todaySchedule = todaySchedule,
+                nextPrayerName = nextPrayerName,
                 countdownStr = countdown
             )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // 4. Carousel Section Header Label
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Schedule,
-                        contentDescription = "Jadwal Harian",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Jadwal Sholat Hari Ini",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                
-                Text(
-                    text = "Geser",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.secondary,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
-            // 5. Carousel Row (Horizontal PageView equivalent)
-            if (todaySchedule != null) {
-                PrayerCarousel(
-                    times = todaySchedule!!,
-                    nextPrayerName = nextPrayerName,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-            } else {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "Menghubungkan Ke Aladhan API...",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.Center,
-                            color = Color.Gray
-                        )
-                    }
-                }
-            }
 
             Spacer(modifier = Modifier.height(8.dp))
             
@@ -338,12 +278,85 @@ fun LocationSection(
     }
 }
 
+data class NextPrayerPageData(
+    val name: String,
+    val time: String,
+    val labelText: String,
+    val arabicName: String
+)
+
 @Composable
 fun NextPrayerCard(
-    label: String,
-    timeStr: String,
+    todaySchedule: com.example.model.PrayerTime?,
+    nextPrayerName: String,
     countdownStr: String
 ) {
+    val context = LocalContext.current
+    val adzanPrefs = remember { context.getSharedPreferences("adzan_prefs", Context.MODE_PRIVATE) }
+    var isAlarmEnabled by remember { mutableStateOf(adzanPrefs.getBoolean("enable_adzan_alarm", true)) }
+
+    if (todaySchedule == null) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .border(
+                    width = 1.dp,
+                    color = Color.White.copy(alpha = 0.18f),
+                    shape = RoundedCornerShape(24.dp)
+                ),
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.08f))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Memuat jadwal sholat...",
+                    color = Color.White.copy(alpha = 0.6f),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+        return
+    }
+
+    val prayers = listOf(
+        NextPrayerPageData("Subuh", todaySchedule.fajr, "SUBUH", "الفجر"),
+        NextPrayerPageData("Dzuhur", todaySchedule.dhuhr, "DZUHUR", "الظهر"),
+        NextPrayerPageData("Ashar", todaySchedule.asr, "ASHAR", "العصر"),
+        NextPrayerPageData("Maghrib", todaySchedule.maghrib, "MAGHRIB", "المغرب"),
+        NextPrayerPageData("Isya", todaySchedule.isha, "ISYA", "العشاء")
+    )
+
+    // Calculate focused active next index
+    val activeIndex = remember(nextPrayerName) {
+        when {
+            nextPrayerName.contains("Subuh", ignoreCase = true) -> 0
+            nextPrayerName.contains("Dzuhur", ignoreCase = true) -> 1
+            nextPrayerName.contains("Ashar", ignoreCase = true) -> 2
+            nextPrayerName.contains("Maghrib", ignoreCase = true) -> 3
+            nextPrayerName.contains("Isya", ignoreCase = true) -> 4
+            else -> 0
+        }
+    }
+
+    val pagerState = rememberPagerState(
+        initialPage = activeIndex,
+        pageCount = { prayers.size }
+    )
+
+    // Auto-scroll pager to active prayer index when activeIndex changes
+    LaunchedEffect(activeIndex) {
+        if (activeIndex in prayers.indices) {
+            pagerState.animateScrollToPage(activeIndex)
+        }
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -370,109 +383,172 @@ fun NextPrayerCard(
                         )
                     )
                 )
-                .padding(24.dp)
+                .padding(vertical = 24.dp, horizontal = 16.dp)
         ) {
-            Column {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            // Interactive Adzan sound speaker on/off toggle button at TOP-RIGHT
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(end = 4.dp)
+            ) {
+                IconButton(
+                    onClick = {
+                        val newValue = !isAlarmEnabled
+                        adzanPrefs.edit().putBoolean("enable_adzan_alarm", newValue).apply()
+                        isAlarmEnabled = newValue
+                        Toast.makeText(
+                            context,
+                            if (newValue) "Suara Adzan Diaktifkan (Speaker ON)" else "Suara Adzan Dinonaktifkan (Muted)",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    },
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(Color.White.copy(alpha = 0.08f), CircleShape)
+                        .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                color = Color.White.copy(alpha = 0.12f),
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                            .border(
-                                width = 1.dp,
-                                color = Color.White.copy(alpha = 0.15f),
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = "SHOLAT BERIKUTNYA",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.sp,
-                            color = MaterialTheme.colorScheme.primary // Gold Accent
-                        )
-                    }
+                    Icon(
+                        imageVector = if (isAlarmEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                        contentDescription = "Suara Adzan On/Off",
+                        tint = if (isAlarmEnabled) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxWidth()
+                ) { page ->
+                    val prayer = prayers[page]
+                    val isCurrent = (page == activeIndex)
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.NotificationsActive,
-                            contentDescription = "Alarm Aktif",
-                            tint = MaterialTheme.colorScheme.primary, // Gold Accent
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
+                        // 1. Teks SHOLAT BERIKUTNYA / SUDAH LEWAT / MENDATANG status (Centered)
+                        val statusLabel = when {
+                            page == activeIndex -> "SHOLAT BERIKUTNYA"
+                            page < activeIndex -> "SUDAH LEWAT"
+                            else -> "MENDATANG"
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .background(
+                                    color = if (isCurrent) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.04f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    color = if (isCurrent) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.08f),
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = statusLabel,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.sp,
+                                color = if (isCurrent) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f)
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // 2. Nama Sholat (Centered)
                         Text(
-                            text = "Adzan Bersuara",
-                            fontSize = 11.sp,
-                            color = Color.White.copy(alpha = 0.8f),
-                            fontWeight = FontWeight.Medium
+                            text = "${prayer.labelText} (${prayer.arabicName})",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            textAlign = TextAlign.Center
                         )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // 3. Jam Sholat (Centered)
+                        Text(
+                            text = prayer.time,
+                            fontSize = 62.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = (-1.5).sp,
+                            color = Color.White,
+                            textAlign = TextAlign.Center
+                        )
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // 4. Countdown / Status info row (Centered)
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            if (isCurrent) {
+                                Text(
+                                    text = "HITUNG MUNDUR",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White.copy(alpha = 0.5f),
+                                    letterSpacing = 0.5.sp
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Alarm,
+                                        contentDescription = "Timer",
+                                        tint = MaterialTheme.colorScheme.secondary,
+                                        modifier = Modifier
+                                            .size(18.dp)
+                                            .padding(end = 2.dp)
+                                    )
+                                    Text(
+                                        text = countdownStr,
+                                        fontSize = 24.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        letterSpacing = 0.5.sp
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = if (page < activeIndex) "Waktu Sholat Telah Tiba" else "Waktu Sholat Mendatang",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.White.copy(alpha = 0.4f),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                Text(
-                    text = label,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
+                // Beautiful Page Indicators
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = timeStr,
-                        fontSize = 54.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = (-1).sp,
-                        color = Color.White
-                    )
-
-                    Column(
-                        horizontalAlignment = Alignment.End,
-                        modifier = Modifier.padding(bottom = 6.dp)
-                    ) {
-                        Text(
-                            text = "HITUNG MUNDUR",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White.copy(alpha = 0.6f),
-                            letterSpacing = 0.5.sp
+                    repeat(prayers.size) { i ->
+                        val isIndicatorActive = (pagerState.currentPage == i)
+                        Box(
+                            modifier = Modifier
+                                .size(if (isIndicatorActive) 8.dp else 5.dp)
+                                .background(
+                                    color = if (isIndicatorActive) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.25f),
+                                    shape = CircleShape
+                                )
                         )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Alarm,
-                                contentDescription = "Timer",
-                                tint = MaterialTheme.colorScheme.secondary, // Bright Gold
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .padding(end = 2.dp)
-                            )
-                            Text(
-                                text = countdownStr,
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.secondary, // Bright Gold
-                                letterSpacing = 0.5.sp
-                            )
-                        }
                     }
                 }
             }

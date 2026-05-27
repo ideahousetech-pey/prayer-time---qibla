@@ -53,7 +53,7 @@ class PrayerService(private val context: Context) {
         longitude: Double,
         month: Int,
         year: Int,
-        method: Int = 3 // Method 3 = Muslim World League (MWL), Method 2 = ISNA, Method 15 = Kemenag RI (ideal untuk Indonesia)
+        method: Int = 20 // Method 20 = Kementerian Agama RI (Kemenag, ideal untuk Indonesia), Method 3 = MWL
     ): List<PrayerTime> = withContext(Dispatchers.IO) {
         try {
             val response = aladhanApi.getMonthlyCalendar(
@@ -148,7 +148,7 @@ class PrayerService(private val context: Context) {
         year: Int
     ): List<PrayerTime> {
         val days = ArrayList<PrayerTime>()
-        val calendar = Calendar.getInstance(TimeZone.getTimeZone("GMT+7"))
+        val calendar = Calendar.getInstance(TimeZone.getDefault())
         calendar.set(Calendar.YEAR, year)
         calendar.set(Calendar.MONTH, month - 1)
         calendar.set(Calendar.HOUR_OF_DAY, 0)
