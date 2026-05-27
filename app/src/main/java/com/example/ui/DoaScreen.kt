@@ -358,6 +358,36 @@ private fun getAuthenticDoaList(): List<DoaModel> {
             arabic = "اللَّهُمَّ إِنِّي أَسْأَلُكَ مِنْ فَضْلِكَ",
             latin = "Allaahumma innii as-aluka min fadhlik.",
             translation = "Ya Allah, sesungguhnya aku memohon keutamaan dari-Mu."
+        ),
+        DoaModel(
+            title = "Doa Memohon Ilmu yang Bermanfaat",
+            arabic = "اللَّهُمَّ إِنِّي أَسْأَلُكَ عِلْمًا نَافِعًا وَرِزْقًا طَيِّبًا وَعَمَلًا مُتَقَبَّلًا",
+            latin = "Allaahumma innii as-aluka 'ilman naafi'an, wa rizqan thayyiban, wa 'amalan mutaqabbalan.",
+            translation = "Ya Allah, sesungguhnya aku memohon kepada-Mu ilmu yang bermanfaat, rezeki yang baik, dan amal yang diterima."
+        ),
+        DoaModel(
+            title = "Doa Keteguhan Iman (Ketetapan Hati)",
+            arabic = "يَا مُقَلِّبَ الْقُلُوبِ ثَبِّتْ قَلْبِي عَلَى دِينِكَ",
+            latin = "Ya muqallibal-quluubi tsabbit qalbii 'alaa diinik.",
+            translation = "Wahai Dzat yang membolak-balikkan hati, tetapkanlah hatiku di atas agama-Mu."
+        ),
+        DoaModel(
+            title = "Doa Memohon Kemudahan",
+            arabic = "اللَّهُمَّ لاَ سَهْلَ إِلاَّ مَا جَعَلْتَهُ سَهْلاً وَأَنْتَ تَجْعَلُ الْحَزْنَ إِذَا شِئْتَ سَهْلاً",
+            latin = "Allaahumma laa sahla illaa maa ja'altahu sahlan, wa anta taj'alul-hazna idzaa syi'ta sahlan.",
+            translation = "Ya Allah, tidak ada kemudahan kecuali apa yang Engkau jadikan mudah. Dan Engkau menjadikan kesedihan (kesulitan), jika Engkau menghendaki, menjadi mudah."
+        ),
+        DoaModel(
+            title = "Doa Keluar Rumah",
+            arabic = "بِسْمِ اللهِ تَوَكَّلْتُ عَلَى اللهِ، لاَ حَوْلَ وَلاَ قُوَّةَ إِلاَّ بِاللهِ",
+            latin = "Bismillaahi tawakkaltu 'alallaahi, laa hawla wa laa quwwata illaa billaah.",
+            translation = "Dengan nama Allah, aku bertawakal kepada Allah. Tiada daya dan kekuatan kecuali dengan pertolongan Allah."
+        ),
+        DoaModel(
+            title = "Doa Naik Kendaraan",
+            arabic = "سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَٰذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ وَإِنَّا إِلَىٰ رَبِّنَا لَمُنقَلِبُونَ",
+            latin = "Subhaanal-ladzii sakhkhara lanaa haadzaa wa maa kunnaa lahuu muqriniin, wa innaa ilaa rabbinaa lamunqalibuun.",
+            translation = "Maha Suci Allah yang telah menundukkan semua ini bagi kami padahal kami sebelumnya tidak mampu menguasainya, dan sesungguhnya kami akan kembali kepada Tuhan kami."
         )
     )
 }

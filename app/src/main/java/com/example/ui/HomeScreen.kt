@@ -255,43 +255,15 @@ fun LocationSection(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f)
-        ) {
-            Icon(
-                imageVector = Icons.Default.LocationOn,
-                contentDescription = "Posisi GPS",
-                tint = MaterialTheme.colorScheme.primary, // Gold
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = locationName,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White // High contrast readable white
-            )
-        }
-
-        IconButton(
-            onClick = onRefreshClick,
-            modifier = Modifier
-                .size(36.dp)
-                .background(Color.White.copy(alpha = 0.12f), CircleShape)
-                .border(1.dp, Color.White.copy(alpha = 0.2f), CircleShape)
-                .testTag("gps_refresh_button")
-        ) {
-            Icon(
-                imageVector = Icons.Default.MyLocation,
-                contentDescription = "Pindai Lokasi GPS",
-                tint = MaterialTheme.colorScheme.primary, // Gold Icon
-                modifier = Modifier.size(18.dp)
-            )
-        }
+        Text(
+            text = locationName.ifEmpty { "Mencari Lokasi GPS..." },
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White // High contrast readable white
+        )
     }
 }
 
@@ -402,37 +374,6 @@ fun NextPrayerCard(
                 )
                 .padding(vertical = 24.dp, horizontal = 16.dp)
         ) {
-            // Interactive Adzan sound speaker on/off toggle button at TOP-RIGHT
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(end = 4.dp)
-            ) {
-                IconButton(
-                    onClick = {
-                        val newValue = !isAlarmEnabled
-                        adzanPrefs.edit().putBoolean("enable_adzan_alarm", newValue).apply()
-                        isAlarmEnabled = newValue
-                        Toast.makeText(
-                            context,
-                            if (newValue) "Suara Adzan Diaktifkan (Speaker ON)" else "Suara Adzan Dinonaktifkan (Muted)",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    },
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(Color.White.copy(alpha = 0.08f), CircleShape)
-                        .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape)
-                ) {
-                    Icon(
-                        imageVector = if (isAlarmEnabled) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
-                        contentDescription = "Suara Adzan On/Off",
-                        tint = if (isAlarmEnabled) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.4f),
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -1297,7 +1238,7 @@ fun GridMenuSection(
         Triple("Kalender", Icons.Default.CalendarMonth, com.example.AppScreen.KALENDER),
         Triple("Bulanan", Icons.Default.TableChart, com.example.AppScreen.JADWAL),
         Triple("Doa-Doa", Icons.Default.MenuBook, com.example.AppScreen.DOA),
-        Triple("Al-Qur'an", Icons.Default.Book, null),
+        Triple("Al-Qur'an", Icons.Default.MenuBook, com.example.AppScreen.QURAN),
         Triple("Dzikir", Icons.Default.Brightness5, null),
         Triple("Masjid", Icons.Default.Place, null),
         Triple("Sholawat", Icons.Default.Audiotrack, null)

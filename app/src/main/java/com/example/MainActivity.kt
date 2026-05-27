@@ -66,6 +66,7 @@ import com.example.ui.HomeScreen
 import com.example.ui.MonthlyScheduleScreen
 import com.example.ui.QiblaScreen
 import com.example.ui.DailyScheduleScreen
+import com.example.ui.QuranScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.viewmodel.LocationViewModel
 import com.example.viewmodel.PrayerViewModel
@@ -116,7 +117,8 @@ enum class AppScreen(val title: String, val icon: ImageVector) {
     KALENDER("Kalender", Icons.Default.CalendarMonth),
     JADWAL("Jadwal", Icons.Default.Schedule),
     DOA("Doa-Doa", Icons.Default.MenuBook),
-    JADWAL_HARIAN("Jadwal Harian", Icons.Default.Schedule)
+    JADWAL_HARIAN("Jadwal Harian", Icons.Default.Schedule),
+    QURAN("Al-Qur'an", Icons.Default.MenuBook)
 }
 
 @Composable
@@ -247,6 +249,9 @@ fun MainLayout(
                         locationViewModel = locationViewModel,
                         onBackClick = { currentScreen = AppScreen.SHOLAT },
                         onNavigateToMonthly = { currentScreen = AppScreen.JADWAL }
+                    )
+                    AppScreen.QURAN -> QuranScreen(
+                        onBackClick = { currentScreen = AppScreen.SHOLAT }
                     )
                 }
             }
