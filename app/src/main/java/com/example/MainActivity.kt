@@ -65,6 +65,7 @@ import com.example.ui.DoaScreen
 import com.example.ui.HomeScreen
 import com.example.ui.MonthlyScheduleScreen
 import com.example.ui.QiblaScreen
+import com.example.ui.DailyScheduleScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.viewmodel.LocationViewModel
 import com.example.viewmodel.PrayerViewModel
@@ -114,7 +115,8 @@ enum class AppScreen(val title: String, val icon: ImageVector) {
     KIBLAT("Kiblat", Icons.Default.CompassCalibration),
     KALENDER("Kalender", Icons.Default.CalendarMonth),
     JADWAL("Jadwal", Icons.Default.Schedule),
-    DOA("Doa-Doa", Icons.Default.MenuBook)
+    DOA("Doa-Doa", Icons.Default.MenuBook),
+    JADWAL_HARIAN("Jadwal Harian", Icons.Default.Schedule)
 }
 
 @Composable
@@ -210,53 +212,7 @@ fun MainLayout(
             containerColor = Color.Transparent,
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing),
-            bottomBar = {
-                NavigationBar(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                        .border(
-                            1.dp, 
-                            Color.White.copy(alpha = 0.12f), 
-                            RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
-                        )
-                        .background(Color(0xFF00332C).copy(alpha = 0.9f))
-                        .windowInsetsPadding(WindowInsets.navigationBars),
-                    containerColor = Color.Transparent, // Let the background modifier handle it
-                    tonalElevation = 12.dp
-                ) {
-                    AppScreen.values().forEach { screen ->
-                        val isSelected = currentScreen == screen
-                        NavigationBarItem(
-                            selected = isSelected,
-                            onClick = { currentScreen = screen },
-                            label = {
-                                Text(
-                                    text = screen.title,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 11.sp,
-                                    color = if (isSelected) Color(0xFFD4AF37) else Color.White.copy(alpha = 0.6f)
-                                )
-                            },
-                            icon = {
-                                Icon(
-                                    imageVector = screen.icon,
-                                    contentDescription = screen.title,
-                                    modifier = Modifier.padding(bottom = 2.dp)
-                                )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Color(0xFF004D40), // Dark color centered in indicator container
-                                selectedTextColor = Color(0xFFD4AF37),
-                                unselectedIconColor = Color.White.copy(alpha = 0.6f),
-                                unselectedTextColor = Color.White.copy(alpha = 0.6f),
-                                indicatorColor = Color(0xFFD4AF37) // Golden circle active indicator
-                            )
-                        )
-                    }
-                }
-            }
+                .windowInsetsPadding(WindowInsets.safeDrawing)
         ) { innerPadding ->
             Box(
                 modifier = Modifier
@@ -266,17 +222,32 @@ fun MainLayout(
                 when (currentScreen) {
                     AppScreen.SHOLAT -> HomeScreen(
                         prayerViewModel = prayerViewModel,
-                        locationViewModel = locationViewModel
+                        locationViewModel = locationViewModel,
+                        onNavigateToScreen = { screen ->
+                            currentScreen = screen
+                        }
                     )
                     AppScreen.KIBLAT -> QiblaScreen(
-                        locationViewModel = locationViewModel
+                        locationViewModel = locationViewModel,
+                        onBackClick = { currentScreen = AppScreen.SHOLAT }
                     )
-                    AppScreen.KALENDER -> CalendarScreen()
+                    AppScreen.KALENDER -> CalendarScreen(
+                        onBackClick = { currentScreen = AppScreen.SHOLAT }
+                    )
                     AppScreen.JADWAL -> MonthlyScheduleScreen(
                         prayerViewModel = prayerViewModel,
-                        locationViewModel = locationViewModel
+                        locationViewModel = locationViewModel,
+                        onBackClick = { currentScreen = AppScreen.SHOLAT }
                     )
-                    AppScreen.DOA -> DoaScreen()
+                    AppScreen.DOA -> DoaScreen(
+                        onBackClick = { currentScreen = AppScreen.SHOLAT }
+                    )
+                    AppScreen.JADWAL_HARIAN -> DailyScheduleScreen(
+                        prayerViewModel = prayerViewModel,
+                        locationViewModel = locationViewModel,
+                        onBackClick = { currentScreen = AppScreen.SHOLAT },
+                        onNavigateToMonthly = { currentScreen = AppScreen.JADWAL }
+                    )
                 }
             }
         }

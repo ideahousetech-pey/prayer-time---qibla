@@ -79,6 +79,15 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.Book
+import androidx.compose.material.icons.filled.Brightness5
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Audiotrack
+import androidx.compose.material.icons.filled.CompassCalibration
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.TableChart
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.runtime.DisposableEffect
 import java.io.File
 import java.io.FileOutputStream
@@ -93,6 +102,7 @@ import java.io.FileOutputStream
 fun HomeScreen(
     prayerViewModel: PrayerViewModel,
     locationViewModel: LocationViewModel,
+    onNavigateToScreen: (com.example.AppScreen) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val todayGregorian by prayerViewModel.todayGregorian.collectAsState()
@@ -152,10 +162,17 @@ fun HomeScreen(
                 countdownStr = countdown
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 4. Circular Button Menu Grid 3x3
+            GridMenuSection(
+                onNavigateToScreen = onNavigateToScreen
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
             
             if (enableDailyReminder) {
-                // 6. Quick Daily Reminder Note Card
+                // 5. Quick Daily Reminder Note Card
                 ReminderNoteCard()
             }
         }
@@ -1262,6 +1279,114 @@ fun SettingsDialog(
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp
                     )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun GridMenuSection(
+    onNavigateToScreen: (com.example.AppScreen) -> Unit
+) {
+    val context = LocalContext.current
+    
+    val items = listOf(
+        Triple("Jadwal", Icons.Default.Schedule, com.example.AppScreen.JADWAL_HARIAN),
+        Triple("Kiblat", Icons.Default.CompassCalibration, com.example.AppScreen.KIBLAT),
+        Triple("Kalender", Icons.Default.CalendarMonth, com.example.AppScreen.KALENDER),
+        Triple("Bulanan", Icons.Default.TableChart, com.example.AppScreen.JADWAL),
+        Triple("Doa-Doa", Icons.Default.MenuBook, com.example.AppScreen.DOA),
+        Triple("Al-Qur'an", Icons.Default.Book, null),
+        Triple("Dzikir", Icons.Default.Brightness5, null),
+        Triple("Masjid", Icons.Default.Place, null),
+        Triple("Sholawat", Icons.Default.Audiotrack, null)
+    )
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .border(
+                width = 1.dp,
+                color = Color.White.copy(alpha = 0.15f),
+                shape = RoundedCornerShape(24.dp)
+            ),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 20.dp, horizontal = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "MENU UTAMA",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Black,
+                color = MaterialTheme.colorScheme.primary, // Gold text
+                letterSpacing = 1.5.sp,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
+            // 3x3 Grid
+            for (row in 0..2) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceAround
+                ) {
+                    for (col in 0..2) {
+                        val index = row * 3 + col
+                        if (index < items.size) {
+                            val item = items[index]
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(vertical = 4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.08f))
+                                        .border(2.dp, Color.White.copy(alpha = 0.15f), CircleShape)
+                                        .clickable {
+                                            if (item.third != null) {
+                                                onNavigateToScreen(item.third!!)
+                                            } else {
+                                                val toastMsg = when (item.first) {
+                                                    "Al-Qur'an" -> "Fitur Al-Qur'an Digital segera hadir!"
+                                                    "Dzikir" -> "Koleksi Dzikir Pagi & Petang segera hadir!"
+                                                    "Masjid" -> "Peta Pencarian Masjid Terdekat segera hadir!"
+                                                    else -> "Kumpulan Sholawat pilihan segera hadir!"
+                                                }
+                                                Toast.makeText(context, toastMsg, Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = item.second,
+                                        contentDescription = item.first,
+                                        tint = MaterialTheme.colorScheme.primary, // Luxurious Gold
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                                
+                                Spacer(modifier = Modifier.height(6.dp))
+                                
+                                Text(
+                                    text = item.first,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }

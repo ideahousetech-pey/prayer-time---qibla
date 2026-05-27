@@ -49,6 +49,8 @@ import com.example.utils.HijriDateUtils
 import com.example.utils.HijriDayGridItem
 import java.util.Calendar
 
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+
 /**
  * Screen Kalender Hijriah.
  * Menampilkan grid bulanan penanggalan Hijriah lengkap dengan tanggal masehi di bawahnya.
@@ -57,6 +59,7 @@ import java.util.Calendar
  */
 @Composable
 fun CalendarScreen(
+    onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     // 1. Ambil penanggalan Hijriah saat ini sebagai posisi awal de-facto
@@ -86,7 +89,29 @@ fun CalendarScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
+        // Top Back Button Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = onBackClick,
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(Color.White.copy(alpha = 0.08f), CircleShape)
+                    .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Kembali ke Menu Utama",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
         
         // Header Judul Halaman
         Text(

@@ -50,6 +50,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+
 /**
  * Screen Kumpulan Doa-Doa harian muslim lengkap.
  * Dilengkapi dengan kolom pencarian interaktif, teks Arab asli berpangkat besar mudah dibaca,
@@ -58,6 +60,7 @@ import androidx.compose.ui.unit.sp
  */
 @Composable
 fun DoaScreen(
+    onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -84,7 +87,29 @@ fun DoaScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
+        // Top Back Button Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = onBackClick,
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(Color.White.copy(alpha = 0.08f), CircleShape)
+                    .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Kembali ke Menu Utama",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Header Judul Halaman
         Text(

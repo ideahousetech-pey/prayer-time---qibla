@@ -44,6 +44,10 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.IconButton
+import androidx.compose.foundation.shape.CircleShape
+
 /**
  * Screen Jadwal Sholat Bulanan.
  * Menampilkan tabel periodik gulir ke bawah berisi jadwal sholat lengkap 30 hari ke depan.
@@ -54,6 +58,7 @@ import java.util.Locale
 fun MonthlyScheduleScreen(
     prayerViewModel: PrayerViewModel,
     locationViewModel: LocationViewModel,
+    onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val monthlySchedule by prayerViewModel.monthlySchedule.collectAsState()
@@ -68,7 +73,29 @@ fun MonthlyScheduleScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
+        // Top Back Button Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = onBackClick,
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(Color.White.copy(alpha = 0.08f), CircleShape)
+                    .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Kembali ke Menu Utama",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Header Judul Halaman
         Text(

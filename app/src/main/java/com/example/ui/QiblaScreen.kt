@@ -53,6 +53,9 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.IconButton
+
 /**
  * Screen Kompas Kiblat.
  * Menghitung sudut Ka'bah bersandar kepada data GPS saat ini.
@@ -62,6 +65,7 @@ import kotlin.math.sqrt
 @Composable
 fun QiblaScreen(
     locationViewModel: LocationViewModel,
+    onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -101,8 +105,30 @@ fun QiblaScreen(
             .padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Top Back Button Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = onBackClick,
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(Color.White.copy(alpha = 0.08f), CircleShape)
+                    .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Kembali ke Menu Utama",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
         // Header Judul Halaman
-        Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = "KOMPAS KIBLAT",
             fontSize = 13.sp,
