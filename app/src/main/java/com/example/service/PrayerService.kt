@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.example.model.PrayerTime
 import com.squareup.moshi.Json
+import com.squareup.moshi.JsonClass
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -341,17 +342,20 @@ interface AladhanApi {
 /**
  * Data Transfer Objects (DTO) untuk penanganan respons dari Aladhan API.
  */
+@JsonClass(generateAdapter = true)
 data class ApiCalendarResponse(
     @Json(name = "code") val code: Int,
     @Json(name = "status") val status: String,
     @Json(name = "data") val data: List<ApiCalendarItem>?
 )
 
+@JsonClass(generateAdapter = true)
 data class ApiCalendarItem(
     @Json(name = "timings") val timings: ApiTimings,
     @Json(name = "date") val date: ApiDate
 )
 
+@JsonClass(generateAdapter = true)
 data class ApiTimings(
     @Json(name = "Fajr") val fajr: String,
     @Json(name = "Dhuhr") val dhuhr: String,
@@ -360,21 +364,25 @@ data class ApiTimings(
     @Json(name = "Isha") val isha: String
 )
 
+@JsonClass(generateAdapter = true)
 data class ApiDate(
     @Json(name = "gregorian") val gregorian: ApiGregorian?,
     @Json(name = "hijri") val hijri: ApiHijri?
 )
 
+@JsonClass(generateAdapter = true)
 data class ApiGregorian(
     @Json(name = "date") val date: String
 )
 
+@JsonClass(generateAdapter = true)
 data class ApiHijri(
     @Json(name = "day") val day: String,
     @Json(name = "month") val month: ApiHijriMonth,
     @Json(name = "year") val year: String
 )
 
+@JsonClass(generateAdapter = true)
 data class ApiHijriMonth(
     @Json(name = "en") val en: String,
     @Json(name = "ar") val ar: String

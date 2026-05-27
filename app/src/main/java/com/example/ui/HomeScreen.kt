@@ -840,7 +840,7 @@ fun SettingsDialog(
                 }
             }
 
-            val targetFileName = if (isFajr) "adzan_fajrd.mp3" else "adzan.mp3"
+            val targetFileName = if (isFajr) "adzan_fajr.mp3" else "adzan.mp3"
             val targetFile = File(context.filesDir, targetFileName)
 
             contentResolver.openInputStream(uri)?.use { input ->
@@ -864,7 +864,7 @@ fun SettingsDialog(
     }
 
     fun deleteCustomAudio(isFajr: Boolean) {
-        val targetFileName = if (isFajr) "adzan_fajrd.mp3" else "adzan.mp3"
+        val targetFileName = if (isFajr) "adzan_fajr.mp3" else "adzan.mp3"
         val targetFile = File(context.filesDir, targetFileName)
         if (targetFile.exists()) {
             targetFile.delete()
@@ -1209,7 +1209,7 @@ fun SettingsDialog(
                                 if (activePreview == "fajr") {
                                     stopPreview()
                                 } else {
-                                    playPreview("adzan_fajrd.mp3", "fajr")
+                                    playPreview("adzan_fajr.mp3", "fajr")
                                 }
                             },
                             modifier = Modifier
@@ -1276,7 +1276,7 @@ fun SettingsDialog(
                         )
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Waktu Sholat & Kiblat v1.0.2\nMari Tegakkan Sholat Tepat Waktu.",
+                            text = "Waktu Sholat & Kiblat v1.0.2\nMari Tegakkan Sholat Tepat Waktu.\n© ferry_pey",
                             fontSize = 11.sp,
                             color = Color(0xFFB2DFDB),
                             lineHeight = 15.sp

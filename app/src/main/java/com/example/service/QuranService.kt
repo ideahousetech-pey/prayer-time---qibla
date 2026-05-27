@@ -2,6 +2,7 @@ package com.example.service
 
 import com.example.ui.QuranVerse
 import com.squareup.moshi.Json
+import com.squareup.moshi.JsonClass
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -51,12 +52,14 @@ interface EQuranApi {
     suspend fun getSurahDetail(@Path("number") number: Int): EQuranResponse
 }
 
+@JsonClass(generateAdapter = true)
 data class EQuranResponse(
     @Json(name = "code") val code: Int,
     @Json(name = "message") val message: String,
     @Json(name = "data") val data: EQuranSuratDetail?
 )
 
+@JsonClass(generateAdapter = true)
 data class EQuranSuratDetail(
     @Json(name = "nomor") val nomor: Int,
     @Json(name = "nama") val nama: String,
@@ -65,9 +68,11 @@ data class EQuranSuratDetail(
     @Json(name = "ayat") val ayat: List<EQuranAyat>
 )
 
+@JsonClass(generateAdapter = true)
 data class EQuranAyat(
     @Json(name = "nomorAyat") val nomorAyat: Int,
     @Json(name = "teksArab") val teksArab: String,
     @Json(name = "teksLatin") val teksLatin: String,
     @Json(name = "teksIndonesia") val teksIndonesia: String
 )
+

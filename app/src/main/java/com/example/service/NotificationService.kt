@@ -73,7 +73,7 @@ class NotificationService(private val context: Context) {
      */
     private fun copyAssetAudioFilesIfNeeded() {
         try {
-            val filesToCopy = listOf("adzan.mp3", "adzan_fajrd.mp3")
+            val filesToCopy = listOf("adzan.mp3", "adzan_fajr.mp3")
             for (fileName in filesToCopy) {
                 val destFile = File(context.filesDir, fileName)
                 if (!destFile.exists()) {
@@ -90,7 +90,7 @@ class NotificationService(private val context: Context) {
             Log.e("NotificationService", "Aset adzan.mp3 asli belum terbuat, meluncurkan synthetic generator")
             // Buat file sinusoidal pendek agar media player tidak crash jika memuat file dummy
             createSyntheticMp3Placeholder("adzan.mp3")
-            createSyntheticMp3Placeholder("adzan_fajrd.mp3")
+            createSyntheticMp3Placeholder("adzan_fajr.mp3")
         }
     }
 
@@ -368,7 +368,7 @@ class AlarmReceiver : BroadcastReceiver() {
                 return
             }
 
-            val audioFileName = if (isFajr) "adzan_fajrd.mp3" else "adzan.mp3"
+            val audioFileName = if (isFajr) "adzan_fajr.mp3" else "adzan.mp3"
             val file = File(context.filesDir, audioFileName)
 
             val prefKey = if (isFajr) "custom_adzan_fajr_name" else "custom_adzan_name"
@@ -379,7 +379,7 @@ class AlarmReceiver : BroadcastReceiver() {
                     setDataSource(file.absolutePath)
                 } else {
                     // Fallback ke ringtone default Alarm perangkat jika dummy file
-                    val notificationUri: Uri = Uri.parse("android.resource://" + context.packageName + "/raw/" + (if (isFajr) "adzan_fajrd" else "adzan"))
+                    val notificationUri: Uri = Uri.parse("android.resource://" + context.packageName + "/raw/" + (if (isFajr) "adzan_fajr" else "adzan"))
                     try {
                         setDataSource(context, notificationUri)
                     } catch (e: Exception) {
