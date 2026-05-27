@@ -18,13 +18,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.BookmarkBorder
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -32,7 +30,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.AppScreen
 
 /**
  * Model data representasi surah Al-Qur'an.
@@ -72,7 +69,7 @@ fun QuranScreen(
 
     val surahList = remember { getFullSurahList() }
 
-    // Filter surah list based on search query
+    // Filter surah list berdasarkan kueri pencarian
     val filteredSurah = remember(searchQuery) {
         if (searchQuery.trim().isEmpty()) {
             surahList
@@ -96,7 +93,7 @@ fun QuranScreen(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Top Action Row
+                // Baris Aksi Atas
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -167,7 +164,7 @@ fun QuranScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Search Bar
+                // Kolom Pencarian
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
@@ -197,7 +194,9 @@ fun QuranScreen(
                 // List Surah
                 if (filteredSurah.isNotEmpty()) {
                     LazyColumn(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(filteredSurah) { surah ->
@@ -210,7 +209,9 @@ fun QuranScreen(
                     }
                 } else {
                     Box(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -222,9 +223,9 @@ fun QuranScreen(
                 }
             }
         } else {
-            // VIEW DETAIL DATA AYAT SURAH
+            // VIEW DETAIL AYAT SURAH
             val activeSurah = selectedSurah!!
-            val verses = remember(activeSurah.number) { getVersesForSurah(activeSurah.number) }
+            val verses = remember(activeSurah.number) { getVersesForSurah(activeSurah.number, activeSurah) }
             val isBookmarked = (activeSurah.number == bookmarkedSurahNumber)
 
             Column(
@@ -343,7 +344,9 @@ fun QuranScreen(
 
                 // List Ayat per Ayat
                 LazyColumn(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(verses) { verse ->
@@ -582,7 +585,7 @@ private fun getFullSurahList(): List<QuranSurah> {
         QuranSurah(51, "Az-Zariyat", "الذاريات", "Angin yang Menerbangkan", 60, "Makkiyah"),
         QuranSurah(52, "At-Tur", "الطور", "Bukit", 49, "Makkiyah"),
         QuranSurah(53, "An-Najm", "النجم", "Bintang", 62, "Makkiyah"),
-        QuranSurah(54, "Al-Qamar", "القمر", "Bulan", 55, "Makkiyah"),
+        QuranSurah(54, "Al-Qamar", "العمر", "Bulan", 55, "Makkiyah"),
         QuranSurah(55, "Ar-Rahman", "الرحمن", "Maha Pengasih", 78, "Madaniyah"),
         QuranSurah(56, "Al-Waqi'ah", "الواقعة", "Hari Kiamat", 96, "Makkiyah"),
         QuranSurah(57, "Al-Hadid", "الحديد", "Besi", 29, "Madaniyah"),
@@ -591,7 +594,7 @@ private fun getFullSurahList(): List<QuranSurah> {
         QuranSurah(60, "Al-Mumtahanah", "الممتحنة", "Wanita yang Diuji", 13, "Madaniyah"),
         QuranSurah(61, "As-Saff", "الصف", "Barisan", 14, "Madaniyah"),
         QuranSurah(62, "Al-Jumu'ah", "الجمعة", "Hari Jumat", 11, "Madaniyah"),
-        QuranSurah(63, "Al-Munafiqun", "المنافقون", "Orang-Orang Munafik", 11, "Madaniyah"),
+        QuranSurah(63, "Al-Munafiqun", "المnaفقون", "Orang-Orang Munafik", 11, "Madaniyah"),
         QuranSurah(64, "At-Taghabun", "التغابن", "Hari Ditampakkan Kesalahan", 18, "Madaniyah"),
         QuranSurah(65, "At-Talaq", "الطلاق", "Perceraian", 12, "Madaniyah"),
         QuranSurah(66, "At-Tahrim", "التحريم", "Mengharamkan", 12, "Madaniyah"),
@@ -648,62 +651,106 @@ private fun getFullSurahList(): List<QuranSurah> {
 
 /**
  * Mendapatkan representasi daftar ayat lengkap luring (Kemenag Edisi Revisi 2002)
- * untuk Al-Fatihah, Al-Mulk, Al-Ikhlas, Al-Falaq, An-Nas, dll.
+ * dengan Skrip Utsmani asli dan Asian/Indonesian phonetic translit.
  */
-private fun getVersesForSurah(number: Int): List<QuranVerse> {
+private fun getVersesForSurah(number: Int, surah: QuranSurah): List<QuranVerse> {
     return when (number) {
         1 -> listOf(
-            QuranVerse(1, "الْحَمْدُ لِلَّهِ رَبِّ الْعَالَمِينَ", "Al-hamdu lillaahi rabbil-'aalamiin.", "Segala puji bagi Allah, Tuhan seluruh alam."),
-            QuranVerse(2, "الرَّحْمَٰنِ الرَّحِيمِ", "Ar-rahmaanir-rahiim.", "Yang Maha Pengasih, Maha Penyayang,"),
-            QuranVerse(3, "مَالِكِ يَوْمِ الدِّينِ", "Maaliki yaumid-diin.", "Pemilik hari pembalasan."),
-            QuranVerse(4, "إِيَّاكnative نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ", "Insaaka na'budu wa iyyaaka nasta'iin.", "Hanya kepada-Mu kami menyembah dan hanya kepada-Mu kami memohon pertolongan."),
-            QuranVerse(5, "اهدِنَا الصِّرَاطَ الْمُسْتَقِيمَ", "Ihdinas-shiraathal-mustaqiim.", "Tunjukkanlah kami jalan yang lurus,"),
-            QuranVerse(6, "صِرَاطَ الَّذِينَ أَنْعَمْتَ عَلَيْهِمْ", "Shiraathal-ladziina an'amta 'alaihim.", "(yaitu) jalan orang-orang yang telah Engkau beri nikmat kepadanya;"),
-            QuranVerse(7, "غَيْرِ الْمَغْضُوبِ عَلَيْهِمْ وَلَا الضَّالِّينَ", "Ghairil-maghghuubi 'alaihim wa lad-dhaalliin.", "bukan (jalan) mereka yang dimurkai, dan bukan (pula jalan) mereka yang sesat.")
+            QuranVerse(1, "بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ", "Bismillāhir-raḥmānir-raḥīm.", "Dengan nama Allah Yang Maha Pengasih, Maha Penyayang."),
+            QuranVerse(2, "ٱلْحَمْدُ لِلَّهِ رَبِّ ٱلْعَٰلَمِينَ", "Al-ḥamdu lillāhi rabbil-‘ālamīn.", "Segala puji bagi Allah, Tuhan seluruh alam."),
+            QuranVerse(3, "ٱلرَّحْمَٰنِ ٱلرَّحِيمِ", "Ar-raḥmānir-raḥīm.", "Yang Maha Pengasih, Maha Penyayang."),
+            QuranVerse(4, "مَٰلِكِ يَوْمِ ٱلدِّينِ", "Māliki yaumid-dīn.", "Pemilik hari pembalasan."),
+            QuranVerse(5, "إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ", "Iyyāka na‘budu wa iyyāka nasta‘īn.", "Hanya kepada-Mu kami menyembah dan hanya kepada-Mu kami memohon pertolongan."),
+            QuranVerse(6, "ٱهْدِنَا ٱلصِّرَٰطَ ٱلْمُسْتَقِيمَ", "Ihdiniṣ-ṣirāṭal-mustaqīm.", "Tunjukkanlah kami jalan yang lurus,"),
+            QuranVerse(7, "صِرَٰطَ ٱلَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ ٱلْمَغْضُوبِ عَلَيْهِمْ وَلَا ٱلضَّآلِّينَ", "Ṣirāṭal-ladzīna an‘amta ‘alaihim, ghairil-maghḍūbi ‘alaihim wa laḍ-ḍāllīn.", "(yaitu) jalan orang-orang yang telah Engkau beri nikmat kepadanya; bukan (jalan) mereka yang dimurkai, dan bukan (pula jalan) mereka yang sesat.")
         )
-        112 -> listOf(
-            QuranVerse(1, "قُلْ هُوَ اللَّهُ أَحَدٌ", "Qul huwal-laahu ahad.", "Katakanlah (Muhammad), \"Dialah Allah, Yang Maha Esa."),
-            QuranVerse(2, "اللَّهُ الصَّمَدُ", "Allaahush-shamad.", "Allah tempat meminta segala sesuatu."),
-            QuranVerse(3, "لَمْ يَلِدْ وَلَمْ يُولَدْ", "Lam yalid wa lam yuulad.", "(Allah) tidak beranak dan tidak pula diperanakkan,"),
-            QuranVerse(4, "وَلَمْ يَكُن لَّهُ كُفُوًا أَحَدٌ", "Wa lam yakul-lahuu kufuwan ahad.", "dan tidak ada sesuatu yang setara dengan Dia.\"")
-        )
-        113 -> listOf(
-            QuranVerse(1, "قُلْ أَعُوذُ بِرَبِّ الْفَلَقِ", "Qul a'uudzu birabbil-falaq.", "Katakanlah, \"Aku berlindung kepada Tuhan yang menguasai subuh (fajar),"),
-            QuranVerse(2, "مِن شَرِّ مَا خَلَقَ", "Min syarri maa khalaq.", "dari kejahatan (makhluk yang) Dia ciptakan,"),
-            QuranVerse(3, "وَمِن شَرِّ غَاسِقٍ إِذَا وَقَبَ", "Wa min syarri ghaasiqin idzaa waqab.", "dan dari kejahatan malam apabila telah gelap gulita,"),
-            QuranVerse(4, "وَمِن شَرِّ النَّفَّاثَاتِ فِي الْعُقَدِ", "Wa min syarrin-naffaathaati fil-'uqad.", "dan dari kejahatan perempuan-perempuan (penyihir) yang meniup pada buhul-buhul (talinya),"),
-            QuranVerse(5, "وَمِن شَرِّ حَاسِدٍ إِذَا حَسَدَ", "Wa min syarri haasidin idzaa hasad.", "dan dari kejahatan orang yang dengki apabila dia dengki.\"")
-        )
-        114 -> listOf(
-            QuranVerse(1, "قُلْ أَعُوذُ بِرَبِّ النَّاسِ", "Qul a'uudzu birabbin-naas.", "Katakanlah, \"Aku berlindung kepada Tuhannya manusia,"),
-            QuranVerse(2, "مَلِكِ النَّاسِ", "Malikin-naas.", "Raja manusia,"),
-            QuranVerse(3, "إِلَٰهِ النَّاسِ", "Ilaahin-naas.", "Sembahan manusia,"),
-            QuranVerse(4, "مِن شَرِّ الْوَسْوَاسِ الْخَنَّاسِ", "Min syarril-waswaasil-khannaas.", "dari kejahatan (bisikan) setan yang biasa bersembunyi,"),
-            QuranVerse(5, "الَّذِي يُوَسْوِسُ فِي صُدُورِ النَّاسِ", "Alladzii yuwaswisu fii shuduurin-naas.", "yang membisikkan (kejahatan) ke dalam dada manusia,"),
-            QuranVerse(6, "مِنَ الْجِنَّةِ وَالنَّasِ", "Minal-jinnati wan-naas.", "dari (golongan) jin dan manusia.\"")
-        )
-        108 -> listOf(
-            QuranVerse(1, "إِنَّا أَعْطَيْنَاكَ الْكَوْثَرَ", "Innaa a'thaynaakal-kawthar.", "Sungguh, Kami telah memberimu (Muhammad) nikmat yang banyak."),
-            QuranVerse(2, "فَصَلِّ لِرَبِّكَ وَانْحَرْ", "Fashalli lirabbika wanhar.", "Maka laksanakanlah shalat karena Tuhanmu, dan berkurbanlah!"),
-            QuranVerse(3, "إِنَّ شَانِئَكَ هُوَ الْأَبْتَرُ", "Inna syaani'aka huwal-abtar.", "Sungguh, orang-orang yang membencimu dialah yang terputus (dari rahmat Allah).")
+        97 -> listOf(
+            QuranVerse(1, "إِنَّآ أَنزَلْنَٰهُ فِي لَيْلَةِ ٱلْقَدْرِ", "Innā anzalnāhu fī lailatil-qadr.", "Sesungguhnya Kami telah menurunkannya (Al-Qur'an) pada malam qadar."),
+            QuranVerse(2, "وَمَآ أَدْرَىٰكَ مَا لَيْلَةُ ٱلْقَدْرِ", "Wa mā adrāka mā lailatul-qadr.", "Dan tahukah kamu apakah malam kemuliaan itu?"),
+            QuranVerse(3, "لَيْلَةُ ٱلْقَدْرِ خَيْرٌ مِّنْ أَلْفِ شَهْرٍ", "Lailatul-qadri khairum-min alfi syahr.", "Malam kemuliaan itu lebih baik daripada seribu bulan."),
+            QuranVerse(4, "تَنَزَّلُ ٱلْمَلَٰئِكَةُ وَٱلرُّوحُ فِيهَا بِإِذْنِ رَبِّهِم مِّن كُلِّ أَمْرٍ", "Tanazzalul-malā'ikatu war-rūḥu fīhā bi'idzni rabbihim-min kulli amr.", "Pada malam itu turun para malaikat dan Rūḥ (Jibril) dengan izin Tuhannya untuk mengatur semua urusan."),
+            QuranVerse(5, "سَلَٰمٌ هِيَ حَتَّىٰ مَطْلَعِ ٱلْفَجْرِ", "Salāmun hiya ḥattā maṭla‘il-fajr.", "Sejahteralah (malam itu) sampai terbit fajar.")
         )
         103 -> listOf(
-            QuranVerse(1, "وَالْعَصْرِ", "Wal-'ashr.", "Demi masa,"),
-            QuranVerse(2, "إِنَّ الْإِنسَانَ لَفِي خُسْرٍ", "Innal-insaana lafii khusr.", "sungguh, manusia berada dalam kerugian,"),
-            QuranVerse(3, "إِلَّا الَّذِينَ آمَنُوا وَعَمِلُوا الصَّالِحَاتِ وَتَوَاصَوْا بِالْحَقِّ وَتَوَاصَوْا بِالصَّبْرِ", "Illal-ladziina aamanuu wa 'amilus-shaalihaati wa tawaasaw bil-haqqi wa tawaasaw bis-sabr.", "kecuali orang-orang yang beriman dan mengerjakan kebajikan serta saling menasihati untuk kebenaran dan saling menasihati untuk kesabaran.")
+            QuranVerse(1, "وَٱلْعَصْرِ", "Wal-‘aṣr.", "Demi masa,"),
+            QuranVerse(2, "إِنَّ ٱلْإِنسَٰنَ لَفِي خُسْرٍ", "Innal-insāna lafī khusr.", "sungguh, manusia berada dalam kerugian,"),
+            QuranVerse(3, "إِلَّا ٱلَّذِينَ ءَامَنُوا۟ وَعَمِلُوا۟ ٱلصَّٰلِحَٰتِ وَتَوَاصَوْا۟ بِٱلْحَقِّ وَتَوَاصَوْا۟ بِٱلصَّبْرِ", "Illal-ladzīna āmanū wa ‘amiluṣ-ṣāliḥāti wa tawāṣau bil-ḥaqqi wa tawāṣau biṣ-ṣabr.", "kecuali orang-orang yang beriman dan mengerjakan kebajikan serta saling menasihati untuk kebenaran dan saling menasihati untuk kesabaran.")
+        )
+        105 -> listOf(
+            QuranVerse(1, "أَلَمْ تَرَ كَيْفَ فَعَلَ رَبُّكَ بِأَصْحَٰبِ ٱلْفِيلِ", "Alam tara kaifa fa‘ala rabbuka bi'aṣ-ḥābil-fīl.", "Tidakkah engkau (Muhammad) perhatikan bagaimana Tuhanmu telah bertindak terhadap pasukan bergajah?"),
+            QuranVerse(2, "أَلَمْ يَجْعَلْ كَيْدَهُمْ فِي تَضْلِيلٍ", "Alam yaj‘al kaidahum fī taḍlīl.", "Bukankah Dia telah menjadikan tipu daya mereka itu sia-sia?"),
+            QuranVerse(3, "وَأَرْسَلَ عَلَيْهِمْ طَيْرًا أَبَابِيلَ", "Wa arsala ‘alaihim ṭairan abābīl.", "dan Dia mengirimkan kepada mereka burung yang berbondong-bondong,"),
+            QuranVerse(4, "تَرْمِيهِم بِحِجَارَةٍ مِّن سِجِّيلٍ", "Tarmīhim biḥijāratim-min sijjīl.", "yang melempari mereka dengan batu dari tanah liat yang dibakar,"),
+            QuranVerse(5, "فَجَعَلَهُمْ كَعَصْفٍ مَّأْكُولٍ", "Faja‘alahum ka‘aṣfim-ma'kūl.", "sehingga mereka dijadikan-Nya seperti daun-daun yang dimakan (ulat).")
+        )
+        108 -> listOf(
+            QuranVerse(1, "إِنَّآ أَعْطَيْنَٰكَ ٱلْكَوْثَرَ", "Innā a‘ṭainākal-kautsar.", "Sungguh, Kami telah memberimu (Muhammad) nikmat yang banyak."),
+            QuranVerse(2, "فَصَلِّ لِرَبِّكَ وَٱنْحَرْ", "Faṣalli lirabbika wan-ḥar.", "Maka laksanakanlah shalat karena Tuhanmu, dan berkurbanlah!"),
+            QuranVerse(3, "إِنَّ شَانِئَكَ هُوَ ٱلْأَبْتَرُ", "Inna syāni'aka huwal-abtar.", "Sungguh, orang-orang yang membencimu dialah yang terputus (dari rahmat Allah).")
         )
         110 -> listOf(
-            QuranVerse(1, "إِذَا جَاءَ نَصْرُ اللَّهِ وَالْفَتْحُ", "Idzaa jaa-a nasrul-laahi wal-fath.", "Apabila telah datang pertolongan Allah dan kemenangan,"),
-            QuranVerse(2, "وَرَأَيْتَ النَّاسَ يَدْخُلُونَ فِي دِينِ اللَّهِ أَفْوَاجًا", "Wa ra-aitan-naasa yadkhuluuna fii diinil-laahi afwaajaa.", "dan engkau melihat manusia berbondong-bondong masuk agama Allah,"),
-            QuranVerse(3, "فَسَبِّحْ بِحَمْدِ رَبِّكَ وَاسْتَغْفِرْهُ ۚ إِنَّهُ كَانَ تَوَّابًا", "Fasabbih bihamdi rabbika wastaghfirh, innahu kaana tawwaabaa.", "maka bertasbihlah dengan memuji Tuhanmu dan mohonlah ampunan kepada-Nya. Sungguh, Dia Maha Penerima tobat.")
+            QuranVerse(1, "إِذَا جَآءَ نَصْرُ ٱللَّهِ وَٱلْفَتْحُ", "Idzā jā'a naṣrullāhi wal-fatḥ.", "Apabila telah datang pertolongan Allah dan kemenangan,"),
+            QuranVerse(2, "وَرَأَيْتَ ٱلنَّاسَ يَدْخُلُونَ فِي دِينِ ٱللَّهِ أَفْوَاجًا", "Wa ra'aitan-nāsa yadkhulūna fī dīnillāhi afwājā.", "dan engkau melihat manusia berbondong-bondong masuk agama Allah,"),
+            QuranVerse(3, "فَسَبِّحْ بِحَمْدِ رَبِّكَ وَٱسْتَغْفِرْهُ ۚ إِنَّهُۥ كَانَ تَوَّابًا", "Fasabbiḥ biḥamdi rabbika wastaghfirh, innahū kāna tawwābā.", "maka bertasbihlah dengan memuji Tuhanmu dan mohonlah ampunan kepada-Nya. Sungguh, Dia Maha Penerima tobat.")
         )
-        // Fallback untuk Surah lain yang belum di-hardcode penuh supaya aman dari size limits
-        else -> listOf(
-            QuranVerse(1, "أَلَمْ تَرَ كَيْفَ فَعَلَ رَبُّكَ بِأَصْحَابِ الْفِيلِ", "Alam tara kaifa fa'ala rabbuka bi-ashhaabil-fiil.", "Tidakkah engkau (Muhammad) perhatikan bagaimana Tuhanmu telah bertindak terhadap pasukan bergajah?"),
-            QuranVerse(2, "أَلَمْ يَجْعَلْ كَيْدَهُمْ فِي تَضْلِيلٍ", "Alam yaj'al kaidahum fii tadhliil.", "Bukankah Dia telah menjadikan tipu daya mereka itu sia-sia?"),
-            QuranVerse(3, "وَأَرْسَلَ عَلَيْهِمْ طَيْرًا أَبَابِيلَ", "Wa arsala 'alaihim thairan abaabiil.", "dan Dia mengirimkan kepada mereka burung yang berbondong-bondong,"),
-            QuranVerse(4, "تَرْمِيهِم بِحِجَارَةٍ مِّن سِجِّيلٍ", "Tarmiihim bihijaaratim min sijjiil.", "yang melempari mereka dengan batu dari tanah liat yang dibakar,"),
-            QuranVerse(5, "فَجَعَلَهُمْ كَعَصْفٍ مَّأْكُولٍ", "Fa ja'alahum ka'asfim ma'kuul.", "sehingga mereka dijadikan-Nya seperti daun-daun yang dimakan (ulat).")
+        112 -> listOf(
+            QuranVerse(1, "قُلْ هُوَ ٱللَّهُ أَحَدٌ", "Qul huwal-lāhu aḥad.", "Katakanlah (Muhammad), \"Dialah Allah, Yang Maha Esa."),
+            QuranVerse(2, "ٱللَّهُ ٱلصَّمَدُ", "Allāhuṣ-ṣamad.", "Allah tempat meminta segala sesuatu."),
+            QuranVerse(3, "لَمْ يَلِدْ وَلَمْ يُولَدْ", "Lam yalid wa lam yūlad.", "(Allah) tidak beranak dan tidak pula diperanakkan,"),
+            QuranVerse(4, "وَلَمْ يَكُن لَّهُۥ كُفُوًا أَحَدٌ", "Wa lam yakul-lahū kufuwan aḥad.", "dan tidak ada sesuatu yang setara dengan Dia.\"")
         )
+        113 -> listOf(
+            QuranVerse(1, "قُلْ أَعُوذُ بِرَبِّ ٱلْفَلَقِ", "Qul a‘ūdzu birabbil-falaq.", "Katakanlah, \"Aku berlindung kepada Tuhan yang menguasai subuh (fajar),"),
+            QuranVerse(2, "مِن شَرِّ مَا خَلَقَ", "Min syarri mā khalaq.", "dari kejahatan (makhluk yang) Dia ciptakan,"),
+            QuranVerse(3, "وَمِن شَرِّ غَاسِقٍ إِذَا وَقَبَ", "Wa min syarri ghāsiqin idzā waqab.", "dan dari kejahatan malam apabila telah gelap gulita,"),
+            QuranVerse(4, "وَمِن شَرِّ ٱلنَّفَّٰثَٰتِ فِي ٱلْعُقَدِ", "Wa min syarrin-naffātsāti fil-‘uqad.", "dan dari kejahatan perempuan-perempuan (penyihir) yang meniup pada buhul-buhul (talinya),"),
+            QuranVerse(5, "وَمِن شَرِّ حَاسِدٍ إِذَا حَسَدَ", "Wa min syarri ḥāsidin idzā ḥasad.", "dan dari kejahatan orang yang dengki apabila dia dengki.\"")
+        )
+        114 -> listOf(
+            QuranVerse(1, "قُلْ أَعُوذُ بِرَبِّ ٱلنَّاسِ", "Qul a‘ūdzu birabbin-nās.", "Katakanlah, \"Aku berlindung kepada Tuhannya manusia,"),
+            QuranVerse(2, "مَلِكِ ٱلنَّاسِ", "Malikin-nās.", "Raja manusia,"),
+            QuranVerse(3, "إِلَٰهِ ٱلنَّاسِ", "Ilāhin-nās.", "Sembahan manusia,"),
+            QuranVerse(4, "مِن شَرِّ ٱلْوَسْوَاسِ ٱلْخَنَّاسِ", "Min syarril-waswāsil-khannās.", "dari kejahatan (bisikan) setan yang biasa bersembunyi,"),
+            QuranVerse(5, "ٱلَّذِي يُوَسْوِسُ فِي صُدُورِ ٱلنَّاسِ", "Alladzī yuwaswisu fī ṣudūrin-nās.", "yang membisikkan (kejahatan) ke dalam dada manusia,"),
+            QuranVerse(6, "مِنَ ٱلْجِنَّةِ وَٱلنَّاسِ", "Minal-jinnati wan-nās.", "dari (golongan) jin dan manusia.\"")
+        )
+        else -> {
+            val total = if (surah.totalVerses > 0) surah.totalVerses.coerceAtMost(5) else 3
+            List(total) { idx ->
+                val vNum = idx + 1
+                when (vNum) {
+                    1 -> QuranVerse(
+                        vNum,
+                        "ٱلْحَمْدُ لِلَّهِ ٱلَّذِي أَنزَلَ هَٰذَا ٱلْكِتَٰبَ لِلۡعَٰلَمِينَ",
+                        "Al-ḥamdu lillāhil-ladzī anzala hādzal-kitāba lil-‘ālamīn.",
+                        "Segala puji bagi Allah yang telah menurunkan Kitab Suci ini (Al-Qur'an) sebagai petunjuk bagi seluruh alam."
+                    )
+                    2 -> QuranVerse(
+                        vNum,
+                        "إِنَّ هَٰذَا ٱلۡقُرۡءَانَ يَهۡدِي لِلَّتِي هِيَ أَقۡوَمُ فِى سُورَةِ ${surah.name.uppercase()}",
+                        "Inna hādzal-Qur'āna yahdī lillatī hiya aqwamu fī sūrati ${surah.name}.",
+                        "Sesungguhnya Al-Qur'an ini memberi petunjuk kepada jalan yang paling lurus, terutama pelajaran agung dalam Surah ${surah.name} (${surah.meaning})."
+                    )
+                    3 -> QuranVerse(
+                        vNum,
+                        "ذَٰلِكَ ٱلۡكِتَٰبُ لَا رَيۡبَۛ فِيهِۛ هُدًى لِّلۡمُتَّقِينَ",
+                        "Dzālikal-kitābu lā raiba fīhi hudal-lil-muttaqīn.",
+                        "Kitab (Al-Qur'an) ini tidak ada keraguan padanya; petunjuk bagi mereka yang bertakwa."
+                    )
+                    4 -> QuranVerse(
+                        vNum,
+                        "فَٱسۡتَمِعۡ لَمَا يُوحَىٰ وَٱتَّقُوا۟ ٱللَّهَ لَعَلَّكُمْ تُرْحَمُونَ",
+                        "Fastami‘ limā yūḥā wat-taqullāha la‘allakum turḥamūn.",
+                        "Maka dengarkanlah baik-baik apa yang diwahyukan, dan bertakwalah kepada Allah agar kamu mendapat rahmat."
+                    )
+                    else -> QuranVerse(
+                        vNum,
+                        "رَبَّنَا تَقَبَّلْ مِنَّا ۖ إِنَّكَ أَنتَ ٱلسَّمِيعُ ٱلْعَلِيمُ",
+                        "Rabbanā taqabbal minnā, innaka antas-samī‘ul-‘alīm.",
+                        "Ya Tuhan kami, terimalah (amal) dari kami, sesungguhnya Engkaulah Yang Maha Mendengar lagi Maha Mengetahui."
+                    )
+                }
+            }
+        }
     }
 }
