@@ -1,4 +1,4 @@
-package com.example.service
+package id.ideahousetech.prayertime_qibla.service
 
 import android.content.Context
 import android.hardware.Sensor

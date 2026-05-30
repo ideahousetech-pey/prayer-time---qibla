@@ -1,4 +1,4 @@
-package com.example.ui
+package id.ideahousetech.prayertime_qibla.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -64,10 +64,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.example.model.IslamicHoliday
-import com.example.ui.components.PrayerCarousel
-import com.example.viewmodel.LocationViewModel
-import com.example.viewmodel.PrayerViewModel
+import id.ideahousetech.prayertime_qibla.model.IslamicHoliday
+import id.ideahousetech.prayertime_qibla.ui.components.PrayerCarousel
+import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
+import id.ideahousetech.prayertime_qibla.viewmodel.PrayerViewModel
+import id.ideahousetech.prayertime_qibla.utils.SecurePrefs
 import android.content.Context
 import android.media.MediaPlayer
 import android.net.Uri
@@ -103,7 +104,7 @@ import java.io.FileOutputStream
 fun HomeScreen(
     prayerViewModel: PrayerViewModel,
     locationViewModel: LocationViewModel,
-    onNavigateToScreen: (com.example.AppScreen) -> Unit,
+    onNavigateToScreen: (id.ideahousetech.prayertime_qibla.AppScreen) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val todayGregorian by prayerViewModel.todayGregorian.collectAsState()
@@ -121,7 +122,7 @@ fun HomeScreen(
     val isLoadingLoc by locationViewModel.isLoading.collectAsState()
 
     val context = LocalContext.current
-    val adzanPrefs = remember { context.getSharedPreferences("adzan_prefs", Context.MODE_PRIVATE) }
+    val adzanPrefs = remember { SecurePrefs.get(context) }
     var showSettingsDialog by remember { mutableStateOf(false) }
     var enableDailyReminder by remember { mutableStateOf(adzanPrefs.getBoolean("enable_daily_reminder", true)) }
 
@@ -282,12 +283,12 @@ data class NextPrayerPageData(
 
 @Composable
 fun NextPrayerCard(
-    todaySchedule: com.example.model.PrayerTime?,
+    todaySchedule: id.ideahousetech.prayertime_qibla.model.PrayerTime?,
     nextPrayerName: String,
     countdownStr: String
 ) {
     val context = LocalContext.current
-    val adzanPrefs = remember { context.getSharedPreferences("adzan_prefs", Context.MODE_PRIVATE) }
+    val adzanPrefs = remember { SecurePrefs.get(context) }
     var isAlarmEnabled by remember { mutableStateOf(adzanPrefs.getBoolean("enable_adzan_alarm", true)) }
 
     if (todaySchedule == null) {
@@ -766,7 +767,7 @@ fun SettingsDialog(
     onReminderToggle: (Boolean) -> Unit
 ) {
     val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences("adzan_prefs", Context.MODE_PRIVATE) }
+    val prefs = remember { SecurePrefs.get(context) }
 
     var isAlarmEnabled by remember { mutableStateOf(prefs.getBoolean("enable_adzan_alarm", true)) }
     var isDailyReminderEnabled by remember { mutableStateOf(prefs.getBoolean("enable_daily_reminder", true)) }
@@ -1308,17 +1309,17 @@ fun SettingsDialog(
 
 @Composable
 fun GridMenuSection(
-    onNavigateToScreen: (com.example.AppScreen) -> Unit
+    onNavigateToScreen: (id.ideahousetech.prayertime_qibla.AppScreen) -> Unit
 ) {
     val context = LocalContext.current
     
     val items = listOf(
-        Triple("Jadwal", Icons.Default.Schedule, com.example.AppScreen.JADWAL_HARIAN),
-        Triple("Kiblat", Icons.Default.CompassCalibration, com.example.AppScreen.KIBLAT),
-        Triple("Kalender", Icons.Default.CalendarMonth, com.example.AppScreen.KALENDER),
-        Triple("Bulanan", Icons.Default.TableChart, com.example.AppScreen.JADWAL),
-        Triple("Doa-Doa", Icons.Default.MenuBook, com.example.AppScreen.DOA),
-        Triple("Al-Qur'an", Icons.Default.MenuBook, com.example.AppScreen.QURAN),
+        Triple("Jadwal", Icons.Default.Schedule, id.ideahousetech.prayertime_qibla.AppScreen.JADWAL_HARIAN),
+        Triple("Kiblat", Icons.Default.CompassCalibration, id.ideahousetech.prayertime_qibla.AppScreen.KIBLAT),
+        Triple("Kalender", Icons.Default.CalendarMonth, id.ideahousetech.prayertime_qibla.AppScreen.KALENDER),
+        Triple("Bulanan", Icons.Default.TableChart, id.ideahousetech.prayertime_qibla.AppScreen.JADWAL),
+        Triple("Doa-Doa", Icons.Default.MenuBook, id.ideahousetech.prayertime_qibla.AppScreen.DOA),
+        Triple("Al-Qur'an", Icons.Default.MenuBook, id.ideahousetech.prayertime_qibla.AppScreen.QURAN),
         Triple("Dzikir", Icons.Default.Brightness5, null),
         Triple("Masjid", Icons.Default.Place, null),
         Triple("Sholawat", Icons.Default.Audiotrack, null)

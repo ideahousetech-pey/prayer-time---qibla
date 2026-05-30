@@ -1,4 +1,4 @@
-package com.example.ui.components
+package id.ideahousetech.prayertime_qibla.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,7 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.model.PrayerTime
+import id.ideahousetech.prayertime_qibla.model.PrayerTime
 
 /**
  * Widget Carousel horizontal untuk menampilkan jadwal waktu sholat 5 waktu hari ini.

@@ -1,4 +1,4 @@
-package com.example.ui
+package id.ideahousetech.prayertime_qibla.ui
 
 import android.content.Context
 import android.widget.Toast
@@ -36,10 +36,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.model.PrayerTime
-import com.example.utils.HijriDateUtils
-import com.example.viewmodel.LocationViewModel
-import com.example.viewmodel.PrayerViewModel
+import id.ideahousetech.prayertime_qibla.model.PrayerTime
+import id.ideahousetech.prayertime_qibla.utils.HijriDateUtils
+import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
+import id.ideahousetech.prayertime_qibla.viewmodel.PrayerViewModel
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale

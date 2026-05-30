@@ -1,4 +1,4 @@
-package com.example.ui
+package id.ideahousetech.prayertime_qibla.ui
 
 import android.content.ClipboardManager
 import android.content.ClipData

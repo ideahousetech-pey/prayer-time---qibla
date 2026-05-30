@@ -1,6 +1,6 @@
-package com.example.utils
+package id.ideahousetech.prayertime_qibla.utils
 
-import com.example.model.IslamicHoliday
+import id.ideahousetech.prayertime_qibla.model.IslamicHoliday
 import java.util.Calendar
 import java.time.LocalDate
 import java.time.chrono.HijrahDate

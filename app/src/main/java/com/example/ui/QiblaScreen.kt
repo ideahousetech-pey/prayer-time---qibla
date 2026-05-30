@@ -1,4 +1,4 @@
-package com.example.ui
+package id.ideahousetech.prayertime_qibla.ui
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -46,8 +46,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.service.QiblaService
-import com.example.viewmodel.LocationViewModel
+import id.ideahousetech.prayertime_qibla.service.QiblaService
+import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin

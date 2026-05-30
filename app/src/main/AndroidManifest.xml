@@ -18,7 +18,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
-        android:allowBackup="true"
+        android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -44,8 +44,8 @@
             android:enabled="true"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.example.prayertimes.ACTION_PLAY_ADZAN" />
-                <action android:name="com.example.prayertimes.ACTION_STOP_ADZAN" />
+                <action android:name="id.ideahousetech.prayertime_qibla.ACTION_PLAY_ADZAN" />
+                <action android:name="id.ideahousetech.prayertime_qibla.ACTION_STOP_ADZAN" />
             </intent-filter>
         </receiver>
 

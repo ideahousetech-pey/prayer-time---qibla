@@ -1,8 +1,10 @@
-package com.example.service
+package id.ideahousetech.prayertime_qibla.service
 
 import android.content.Context
 import android.util.Log
-import com.example.model.PrayerTime
+import id.ideahousetech.prayertime_qibla.model.PrayerTime
+import id.ideahousetech.prayertime_qibla.utils.SecurePrefs
+import id.ideahousetech.prayertime_qibla.BuildConfig
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import kotlinx.coroutines.Dispatchers
@@ -34,8 +36,14 @@ class PrayerService(private val context: Context) {
     // Konfigurasi HTTP Network client dengan logging interceptor
     private val httpClient = OkHttpClient.Builder()
         .addInterceptor(HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            // Logging hanya aktif saat debug, TIDAK di release
+            level = if (BuildConfig.DEBUG)
+                HttpLoggingInterceptor.Level.BODY
+            else
+                HttpLoggingInterceptor.Level.NONE
         })
+        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
         .build()
 
     private val aladhanApi = Retrofit.Builder()
@@ -56,7 +64,7 @@ class PrayerService(private val context: Context) {
         year: Int,
         method: Int = 20 // Method 20 = Kementerian Agama RI (Kemenag, ideal untuk Indonesia), Method 3 = MWL
     ): List<PrayerTime> = withContext(Dispatchers.IO) {
-        val sharedPrefs = context.getSharedPreferences("adzan_prefs", Context.MODE_PRIVATE)
+        val sharedPrefs = SecurePrefs.get(context)
         val offset = sharedPrefs.getInt("prayer_time_offset", 0)
 
         try {
@@ -213,7 +221,7 @@ class PrayerService(private val context: Context) {
             val hourAngleAsr = getHourAngle(asrAngleVal, latitude, declination)
             val asrTimeAndHour = baseDhuhr + (hourAngleAsr / 15.0)
 
-            val sharedPrefs = context.getSharedPreferences("adzan_prefs", Context.MODE_PRIVATE)
+            val sharedPrefs = SecurePrefs.get(context)
             val offsetVal = sharedPrefs.getInt("prayer_time_offset", 0)
 
             days.add(

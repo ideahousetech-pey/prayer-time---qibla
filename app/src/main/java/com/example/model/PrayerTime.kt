@@ -1,4 +1,4 @@
-package com.example.model
+package id.ideahousetech.prayertime_qibla.model
 
 /**
  * Model data untuk mempresentasikan jadwal waktu sholat harian.

@@ -1,4 +1,4 @@
-package com.example.service
+package id.ideahousetech.prayertime_qibla.service
 
 import android.app.AlarmManager
 import android.app.NotificationChannel
@@ -12,7 +12,8 @@ import android.net.Uri
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.example.model.PrayerTime
+import id.ideahousetech.prayertime_qibla.model.PrayerTime
+import id.ideahousetech.prayertime_qibla.utils.SecurePrefs
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -34,8 +35,8 @@ class NotificationService(private val context: Context) {
     companion object {
         const val CHANNEL_ID = "islamic_prayer_alarms"
         const val CHANNEL_NAME = "Jadwal Waktu Sholat & Adzan"
-        const val ACTION_PLAY_ADZAN = "com.example.prayertimes.ACTION_PLAY_ADZAN"
-        const val ACTION_STOP_ADZAN = "com.example.prayertimes.ACTION_STOP_ADZAN"
+        const val ACTION_PLAY_ADZAN = "id.ideahousetech.prayertime_qibla.ACTION_PLAY_ADZAN"
+        const val ACTION_STOP_ADZAN = "id.ideahousetech.prayertime_qibla.ACTION_STOP_ADZAN"
         const val EXTRA_PRAYER_NAME = "prayer_name"
         const val EXTRA_IS_FAJR = "is_fajr"
 
@@ -76,19 +77,19 @@ class NotificationService(private val context: Context) {
             val filesToCopy = listOf("adzan.mp3", "adzan_fajr.mp3")
             for (fileName in filesToCopy) {
                 val destFile = File(context.filesDir, fileName)
-                if (!destFile.exists()) {
-                    // Tulis file dummy pendek (silent bytes) untuk pancingan
+                val isDummy = destFile.exists() && destFile.length() < 50000
+                if (!destFile.exists() || isDummy) {
                     context.assets.open(fileName).use { input ->
                         FileOutputStream(destFile).use { output ->
                             input.copyTo(output)
                         }
                     }
-                    Log.d("NotificationService", "Tersalin: $fileName")
+                    Log.d("NotificationService", "Tersalin dari asset: $fileName (ukuran: ${destFile.length()} bytes)")
                 }
             }
         } catch (e: Exception) {
-            Log.e("NotificationService", "Aset adzan.mp3 asli belum terbuat, meluncurkan synthetic generator")
-            // Buat file sinusoidal pendek agar media player tidak crash jika memuat file dummy
+            Log.e("NotificationService", "Aset adzan asli belum tersedia atau gagal disalin: ${e.message}")
+            // Buat file synthetic dummy hanya jika destFile tidak ada sama sekali
             createSyntheticMp3Placeholder("adzan.mp3")
             createSyntheticMp3Placeholder("adzan_fajr.mp3")
         }
@@ -361,7 +362,7 @@ class AlarmReceiver : BroadcastReceiver() {
         try {
             stopAdzanAudio() // yakinkan dibersihkan terlebih dahulu
 
-            val prefs = context.getSharedPreferences("adzan_prefs", Context.MODE_PRIVATE)
+            val prefs = SecurePrefs.get(context)
             val isAlarmEnabled = prefs.getBoolean("enable_adzan_alarm", true)
             if (!isAlarmEnabled) {
                 Log.d("AlarmReceiver", "Alarm adzan dinonaktifkan di pengaturan.")

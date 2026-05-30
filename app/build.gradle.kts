@@ -1,3 +1,5 @@
+import java.net.URL
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -7,11 +9,11 @@ plugins {
 }
 
 android {
-  namespace = "com.example"
+  namespace = "id.ideahousetech.prayertime_qibla"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.prayertimes.hqzvw"
+    applicationId = "id.ideahousetech.prayertime_qibla"
     minSdk = 24
     targetSdk = 36
     versionCode = 1
@@ -39,11 +41,16 @@ android {
   buildTypes {
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
-      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+      isMinifyEnabled = true          // ← WAJIB aktifkan
+      isShrinkResources = true        // ← tambahkan ini
+      proguardFiles(
+        getDefaultProguardFile("proguard-android-optimize.txt"),
+        "proguard-rules.pro"
+      )
       signingConfig = signingConfigs.getByName("release")
     }
     debug {
+      isMinifyEnabled = false
       signingConfig = signingConfigs.getByName("debugConfig")
     }
   }
@@ -118,4 +125,55 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
   "ksp"(libs.androidx.room.compiler)
   "ksp"(libs.moshi.kotlin.codegen)
+  implementation(libs.androidx.security.crypto)
 }
+
+tasks.register("downloadAssets") {
+    doLast {
+        val assetsDir = file("src/main/assets")
+        if (!assetsDir.exists()) {
+            assetsDir.mkdirs()
+        }
+        val adzanFile = file("src/main/assets/adzan.mp3")
+        if (!adzanFile.exists()) {
+            try {
+                println("Downloading adzan.mp3...")
+                val connection = URL("https://archive.org/download/adhan_202206/adhan.mp3").openConnection()
+                connection.connectTimeout = 3000
+                connection.readTimeout = 3000
+                connection.getInputStream().use { input ->
+                    adzanFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                println("adzan.mp3 download success.")
+            } catch (e: Exception) {
+                println("Failed to download adzan.mp3: ${e.message}")
+                // Write a tiny 1-byte placeholder so we don't try again and block build
+                adzanFile.writeBytes(ByteArray(1))
+            }
+        }
+        val adzanFajrFile = file("src/main/assets/adzan_fajr.mp3")
+        if (!adzanFajrFile.exists()) {
+            try {
+                println("Downloading adzan_fajr.mp3...")
+                val connection = URL("https://archive.org/download/AzanMadinah_201712/azan_madinah.mp3").openConnection()
+                connection.connectTimeout = 3000
+                connection.readTimeout = 3000
+                connection.getInputStream().use { input ->
+                    adzanFajrFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                println("adzan_fajr.mp3 download success.")
+            } catch (e: Exception) {
+                println("Failed to download adzan_fajr.mp3: ${e.message}")
+                // Write a tiny 1-byte placeholder so we don't try again and block build
+                adzanFajrFile.writeBytes(ByteArray(1))
+            }
+        }
+    }
+}
+
+
+

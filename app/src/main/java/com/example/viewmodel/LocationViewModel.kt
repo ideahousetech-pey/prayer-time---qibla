@@ -1,11 +1,11 @@
-package com.example.viewmodel
+package id.ideahousetech.prayertime_qibla.viewmodel
 
 import android.content.Context
 import android.content.SharedPreferences
 import android.location.Location
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.service.LocationService
+import id.ideahousetech.prayertime_qibla.service.LocationService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

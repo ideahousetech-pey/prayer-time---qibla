@@ -1,14 +1,14 @@
-package com.example.viewmodel
+package id.ideahousetech.prayertime_qibla.viewmodel
 
 import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.model.IslamicHoliday
-import com.example.model.PrayerTime
-import com.example.service.NotificationService
-import com.example.service.PrayerService
-import com.example.utils.HijriDateUtils
+import id.ideahousetech.prayertime_qibla.model.IslamicHoliday
+import id.ideahousetech.prayertime_qibla.model.PrayerTime
+import id.ideahousetech.prayertime_qibla.service.NotificationService
+import id.ideahousetech.prayertime_qibla.service.PrayerService
+import id.ideahousetech.prayertime_qibla.utils.HijriDateUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay

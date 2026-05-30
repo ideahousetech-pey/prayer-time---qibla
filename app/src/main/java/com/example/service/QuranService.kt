@@ -1,6 +1,6 @@
-package com.example.service
+package id.ideahousetech.prayertime_qibla.service
 
-import com.example.ui.QuranVerse
+import id.ideahousetech.prayertime_qibla.ui.QuranVerse
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import kotlinx.coroutines.Dispatchers

@@ -1,4 +1,4 @@
-package com.example.ui
+package id.ideahousetech.prayertime_qibla.ui
 
 import android.content.Context
 import android.widget.Toast
@@ -235,7 +235,7 @@ fun QuranScreen(
             LaunchedEffect(activeSurah.number) {
                 isLoadingVerses = true
                 isOfflineMode = false
-                val quranService = com.example.service.QuranService()
+                val quranService = id.ideahousetech.prayertime_qibla.service.QuranService()
                 val fetched = quranService.getSurahDetail(activeSurah.number)
                 if (fetched != null && fetched.isNotEmpty()) {
                     versesList = fetched

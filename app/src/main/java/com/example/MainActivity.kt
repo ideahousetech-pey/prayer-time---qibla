@@ -1,4 +1,4 @@
-package com.example
+package id.ideahousetech.prayertime_qibla
 
 import android.Manifest
 import android.content.Context
@@ -60,16 +60,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Column
-import com.example.ui.CalendarScreen
-import com.example.ui.DoaScreen
-import com.example.ui.HomeScreen
-import com.example.ui.MonthlyScheduleScreen
-import com.example.ui.QiblaScreen
-import com.example.ui.DailyScheduleScreen
-import com.example.ui.QuranScreen
-import com.example.ui.theme.MyApplicationTheme
-import com.example.viewmodel.LocationViewModel
-import com.example.viewmodel.PrayerViewModel
+import id.ideahousetech.prayertime_qibla.ui.CalendarScreen
+import id.ideahousetech.prayertime_qibla.ui.DoaScreen
+import id.ideahousetech.prayertime_qibla.ui.HomeScreen
+import id.ideahousetech.prayertime_qibla.ui.MonthlyScheduleScreen
+import id.ideahousetech.prayertime_qibla.ui.QiblaScreen
+import id.ideahousetech.prayertime_qibla.ui.DailyScheduleScreen
+import id.ideahousetech.prayertime_qibla.ui.QuranScreen
+import id.ideahousetech.prayertime_qibla.ui.theme.MyApplicationTheme
+import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
+import id.ideahousetech.prayertime_qibla.viewmodel.PrayerViewModel
 
 /**
  * Aktivitas utama (MainActivity) yang bertindak sebagai gerbang masuk aplikasi.

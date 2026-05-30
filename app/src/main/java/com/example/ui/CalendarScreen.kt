@@ -1,4 +1,4 @@
-package com.example.ui
+package id.ideahousetech.prayertime_qibla.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -44,9 +44,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.model.IslamicHoliday
-import com.example.utils.HijriDateUtils
-import com.example.utils.HijriDayGridItem
+import id.ideahousetech.prayertime_qibla.model.IslamicHoliday
+import id.ideahousetech.prayertime_qibla.utils.HijriDateUtils
+import id.ideahousetech.prayertime_qibla.utils.HijriDayGridItem
 import java.util.Calendar
 
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
