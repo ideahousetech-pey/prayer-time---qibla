@@ -109,6 +109,7 @@ class NotificationService(private val context: Context) {
         const val CHANNEL_NAME = "Jadwal Waktu Sholat & Adzan"
         const val ACTION_PLAY_ADZAN = "id.ideahousetech.prayertime_qibla.ACTION_PLAY_ADZAN"
         const val ACTION_STOP_ADZAN = "id.ideahousetech.prayertime_qibla.ACTION_STOP_ADZAN"
+        const val ACTION_PRE_REMINDER = "id.ideahousetech.prayertime_qibla.ACTION_PRE_REMINDER"
         const val EXTRA_PRAYER_NAME = "prayer_name"
         const val EXTRA_IS_FAJR = "is_fajr"
 
@@ -291,6 +292,51 @@ class NotificationService(private val context: Context) {
                     calendar.add(Calendar.DAY_OF_YEAR, 1)
                 }
 
+                // Jadwalkan pre-reminder 15 menit sebelum waktu sholat utama dimulai
+                val preCalendar = (calendar.clone() as Calendar).apply {
+                    add(Calendar.MINUTE, -15)
+                }
+                if (preCalendar.timeInMillis > System.currentTimeMillis()) {
+                    val preIntent = Intent(context, AlarmReceiver::class.java).apply {
+                        action = ACTION_PRE_REMINDER
+                        putExtra(EXTRA_PRAYER_NAME, name)
+                    }
+                    val preFlags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                    } else {
+                        PendingIntent.FLAG_UPDATE_CURRENT
+                    }
+                    val prePendingIntent = PendingIntent.getBroadcast(
+                        context,
+                        alarmIndex + 100, // Unique request code to avoid conflict with actual alarm requests (1-5)
+                        preIntent,
+                        preFlags
+                    )
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        if (alarmManager.canScheduleExactAlarms()) {
+                            alarmManager.setExactAndAllowWhileIdle(
+                                AlarmManager.RTC_WAKEUP,
+                                preCalendar.timeInMillis,
+                                prePendingIntent
+                            )
+                        } else {
+                            alarmManager.setAndAllowWhileIdle(
+                                AlarmManager.RTC_WAKEUP,
+                                preCalendar.timeInMillis,
+                                prePendingIntent
+                            )
+                        }
+                    } else {
+                        alarmManager.setExactAndAllowWhileIdle(
+                            AlarmManager.RTC_WAKEUP,
+                            preCalendar.timeInMillis,
+                            prePendingIntent
+                        )
+                    }
+                    Log.d("NotificationService", "Terjadwal alarm pra-pengingat 15m sebelum $name")
+                }
+
                 val intent = Intent(context, AlarmReceiver::class.java).apply {
                     action = ACTION_PLAY_ADZAN
                     putExtra(EXTRA_PRAYER_NAME, name)
@@ -344,18 +390,30 @@ class NotificationService(private val context: Context) {
     private fun cancelAllScheduledAlarms() {
         // Membersihkan alarm sebelumnya agar tidak tumpang tindih
         for (i in 1..5) {
-            val intent = Intent(context, AlarmReceiver::class.java).apply {
-                action = ACTION_PLAY_ADZAN
-            }
             val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
             } else {
                 PendingIntent.FLAG_NO_CREATE
             }
+
+            // Batalkan alarm adzan utama
+            val intent = Intent(context, AlarmReceiver::class.java).apply {
+                action = ACTION_PLAY_ADZAN
+            }
             val pendingIntent = PendingIntent.getBroadcast(context, i, intent, flags)
             if (pendingIntent != null) {
                 alarmManager.cancel(pendingIntent)
                 pendingIntent.cancel()
+            }
+
+            // Batalkan alarm pra-pengingat (15 menit sebelum sholat)
+            val preIntent = Intent(context, AlarmReceiver::class.java).apply {
+                action = ACTION_PRE_REMINDER
+            }
+            val prePendingIntent = PendingIntent.getBroadcast(context, i + 100, preIntent, flags)
+            if (prePendingIntent != null) {
+                alarmManager.cancel(prePendingIntent)
+                prePendingIntent.cancel()
             }
         }
     }
@@ -381,6 +439,10 @@ class AlarmReceiver : BroadcastReceiver() {
             // 2. Putar Suara Adzan
             val service = NotificationService.getInstance(context)
             service.playAdzanAudio(isFajr)
+        } else if (intent.action == NotificationService.ACTION_PRE_REMINDER) {
+            val prayerName = intent.getStringExtra(NotificationService.EXTRA_PRAYER_NAME) ?: "Sholat"
+            Log.d("AlarmReceiver", "Alarm Berbunyi! Pra-pengingat untuk sholat: $prayerName")
+            showPreReminderNotification(context, prayerName)
         } else if (intent.action == NotificationService.ACTION_STOP_ADZAN) {
             Log.d("AlarmReceiver", "Aksi stop adzan ditekan.")
             val service = NotificationService.getInstance(context)
@@ -436,5 +498,34 @@ class AlarmReceiver : BroadcastReceiver() {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
         notificationManager.notify(1001, builder.build())
+    }
+
+    private fun showPreReminderNotification(context: Context, prayerName: String) {
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        val openAppIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+        val openAppPendingIntent = PendingIntent.getActivity(
+            context,
+            120,
+            openAppIntent,
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+        )
+
+        val textTitle = "Mendekati Waktu Sholat $prayerName (-15m)"
+        val textBody = "Waktu sholat $prayerName akan segera tiba dalam 15 menit. Mari persiapkan diri Anda."
+
+        val builder = NotificationCompat.Builder(context, NotificationService.CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+            .setContentTitle(textTitle)
+            .setContentText(textBody)
+            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            .setContentIntent(openAppPendingIntent)
+            .setAutoCancel(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+
+        notificationManager.notify(1002, builder.build())
     }
 }

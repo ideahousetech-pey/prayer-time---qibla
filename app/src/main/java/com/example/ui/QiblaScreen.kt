@@ -144,6 +144,46 @@ fun QiblaScreen(
             modifier = Modifier.padding(top = 4.dp)
         )
 
+        // Warning banner sensor kompas jika kurang akurat (M3 Banner style)
+        val sensorAccuracy by qiblaService.sensorAccuracy.collectAsState()
+        if (sensorAccuracy < 2) {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF5C1D1D)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE57373)),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CompassCalibration,
+                        contentDescription = "Kalibrasi",
+                        tint = Color(0xFFFFCDD2),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "Akurasi Kompas Rendah",
+                            color = Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Harap ayunkan ponsel Anda membentuk pola angka 8 (kalibrasi) untuk menyeimbangkan penunjuk arah magnetik.",
+                            color = Color(0xFFFFCDD2),
+                            fontSize = 11.sp,
+                            lineHeight = 15.sp
+                        )
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(30.dp))
 
         // Visualisasi Kompas Berbentuk Bulat Premium Jetpack Compose (Glassmorphism design)

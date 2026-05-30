@@ -67,9 +67,11 @@ import id.ideahousetech.prayertime_qibla.ui.MonthlyScheduleScreen
 import id.ideahousetech.prayertime_qibla.ui.QiblaScreen
 import id.ideahousetech.prayertime_qibla.ui.DailyScheduleScreen
 import id.ideahousetech.prayertime_qibla.ui.QuranScreen
+import id.ideahousetech.prayertime_qibla.ui.TasbihScreen
 import id.ideahousetech.prayertime_qibla.ui.theme.MyApplicationTheme
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
 import id.ideahousetech.prayertime_qibla.viewmodel.PrayerViewModel
+import androidx.compose.material.icons.filled.Cached
 
 /**
  * Aktivitas utama (MainActivity) yang bertindak sebagai gerbang masuk aplikasi.
@@ -118,7 +120,8 @@ enum class AppScreen(val title: String, val icon: ImageVector) {
     JADWAL("Jadwal", Icons.Default.Schedule),
     DOA("Doa-Doa", Icons.Default.MenuBook),
     JADWAL_HARIAN("Jadwal Harian", Icons.Default.Schedule),
-    QURAN("Al-Qur'an", Icons.Default.MenuBook)
+    QURAN("Al-Qur'an", Icons.Default.MenuBook),
+    TASBIH("Tasbih", Icons.Default.Cached)
 }
 
 @Composable
@@ -129,6 +132,25 @@ fun MainLayout(
     val context = LocalContext.current
     var currentScreen by remember { mutableStateOf(AppScreen.SHOLAT) }
     val userLocation by locationViewModel.userLocation.collectAsState()
+
+    // 0. Mulai AdzanForegroundService jika alarm diset aktif hulu-hilir
+    LaunchedEffect(Unit) {
+        val prefs = id.ideahousetech.prayertime_qibla.utils.SecurePrefs.get(context)
+        if (prefs.getBoolean("enable_adzan_alarm", true)) {
+            val intent = android.content.Intent(context, id.ideahousetech.prayertime_qibla.service.AdzanForegroundService::class.java).apply {
+                action = id.ideahousetech.prayertime_qibla.service.AdzanForegroundService.ACTION_START
+            }
+            try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("MainActivity", "Gagal mendirikan AdzanForegroundService: ${e.message}")
+            }
+        }
+    }
 
     // 1. Integrasi Izin Lokasi dan Notifikasi di Awal Startup (Android Runtime Permissions)
     val permissionsLauncher = rememberLauncherForActivityResult(
@@ -251,6 +273,9 @@ fun MainLayout(
                         onNavigateToMonthly = { currentScreen = AppScreen.JADWAL }
                     )
                     AppScreen.QURAN -> QuranScreen(
+                        onBackClick = { currentScreen = AppScreen.SHOLAT }
+                    )
+                    AppScreen.TASBIH -> TasbihScreen(
                         onBackClick = { currentScreen = AppScreen.SHOLAT }
                     )
                 }

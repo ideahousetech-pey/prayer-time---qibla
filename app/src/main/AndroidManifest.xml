@@ -17,6 +17,10 @@
     <!-- Izin Post Pemberitahuan Notifikasi di Android 13+ (Tiramisu+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Izin Foreground Service -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -48,6 +52,14 @@
                 <action android:name="id.ideahousetech.prayertime_qibla.ACTION_STOP_ADZAN" />
             </intent-filter>
         </receiver>
+
+        <!-- Registrasi Foreground Service -->
+        <service
+            android:name=".service.AdzanForegroundService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Layanan ini menjaga agar scheduler adzan tetap berjalan tepat waktu dan tidak di-kill oleh OS." />
+        </service>
 
     </application>
 

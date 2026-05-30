@@ -33,6 +33,10 @@ class QiblaService(context: Context) : SensorEventListener {
     private val _azimuthFlow = MutableStateFlow(0f)
     val azimuthFlow: StateFlow<Float> = _azimuthFlow
 
+    // StateFlow akurasi magnetometer (Default: SENSOR_STATUS_ACCURACY_HIGH = 3)
+    private val _sensorAccuracy = MutableStateFlow(3)
+    val sensorAccuracy: StateFlow<Int> = _sensorAccuracy
+
     /**
      * Koordinat Ka'bah di Masjidil Haram, Makkah
      */
@@ -114,6 +118,8 @@ class QiblaService(context: Context) : SensorEventListener {
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-        // Tidak perlu penanganan khusus untuk proyek ini
+        if (sensor?.type == Sensor.TYPE_MAGNETIC_FIELD) {
+            _sensorAccuracy.value = accuracy
+        }
     }
 }

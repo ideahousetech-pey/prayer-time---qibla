@@ -25,9 +25,10 @@ interface PrayerCacheDao {
     suspend fun clearExpiredCache(expiry: Long)
 }
 
-@Database(entities = [PrayerTimeCache::class], version = 1, exportSchema = false)
+@Database(entities = [PrayerTimeCache::class, TasbihSession::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun prayerCacheDao(): PrayerCacheDao
+    abstract fun tasbihDao(): TasbihDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -43,3 +44,27 @@ abstract class AppDatabase : RoomDatabase() {
         }
     }
 }
+
+@Entity(tableName = "tasbih_history")
+data class TasbihSession(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val dzikirName: String,     // Nama dzikir (e.g. "Subhanallah")
+    val count: Int,             // Jumlah dzikir
+    val timestamp: Long = System.currentTimeMillis() // Waktu simpan
+)
+
+@Dao
+interface TasbihDao {
+    @Query("SELECT * FROM tasbih_history ORDER BY timestamp DESC")
+    fun getAllSessions(): Flow<List<TasbihSession>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSession(session: TasbihSession)
+
+    @Query("DELETE FROM tasbih_history WHERE id = :id")
+    suspend fun deleteSession(id: Int)
+
+    @Query("DELETE FROM tasbih_history")
+    suspend fun clearHistory()
+}
+

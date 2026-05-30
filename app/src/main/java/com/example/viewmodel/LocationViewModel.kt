@@ -33,7 +33,13 @@ class LocationViewModel(context: Context) : ViewModel() {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    // State untuk lokasi manual
+    private val _isManualLocation = MutableStateFlow(false)
+    val isManualLocation: StateFlow<Boolean> = _isManualLocation.asStateFlow()
+
     init {
+        // Ambil status apakah terakhir kali diset mode manual
+        _isManualLocation.value = prefs.getBoolean("is_manual_location", false)
         // Memuat lokasi cadangan terakhir dari shared_preference agar UI langsung terisi tanpa menunggu GPS lambat
         loadCachedLocation()
     }
@@ -44,6 +50,9 @@ class LocationViewModel(context: Context) : ViewModel() {
      * lalu menyimpan properti baru tersebut di SharedPreferences.
      */
     fun refreshLocation() {
+        if (_isManualLocation.value) {
+            return
+        }
         viewModelScope.launch {
             _isLoading.value = true
             val loc = locationService.getCurrentLocation()
@@ -58,6 +67,36 @@ class LocationViewModel(context: Context) : ViewModel() {
             }
             _isLoading.value = false
         }
+    }
+
+    /**
+     * Set lokasi kustom secara manual
+     */
+    fun setManualLocation(cityName: String, lat: Double, lon: Double) {
+        _isManualLocation.value = true
+        _locationName.value = cityName
+        val manualLoc = Location("manual").apply {
+            latitude = lat
+            longitude = lon
+        }
+        _userLocation.value = manualLoc
+        
+        prefs.edit().apply {
+            putBoolean("is_manual_location", true)
+            putFloat("cached_lat", lat.toFloat())
+            putFloat("cached_lon", lon.toFloat())
+            putString("cached_address", cityName)
+            apply()
+        }
+    }
+
+    /**
+     * Kembali ke mode GPS Otomatis
+     */
+    fun setAutoLocation() {
+        _isManualLocation.value = false
+        prefs.edit().putBoolean("is_manual_location", false).apply()
+        refreshLocation()
     }
 
     /**

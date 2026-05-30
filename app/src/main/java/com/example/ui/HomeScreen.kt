@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,7 +42,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Cached
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -190,6 +197,7 @@ fun HomeScreen(
         // 8. Dialog Pengaturan Aplikasi kustom
         if (showSettingsDialog) {
             SettingsDialog(
+                locationViewModel = locationViewModel,
                 onDismiss = {
                     showSettingsDialog = false
                     userLocation?.let {
@@ -763,6 +771,7 @@ fun HolidayDialog(
 
 @Composable
 fun SettingsDialog(
+    locationViewModel: id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel,
     onDismiss: () -> Unit,
     onReminderToggle: (Boolean) -> Unit
 ) {
@@ -1087,6 +1096,160 @@ fun SettingsDialog(
 
                 Spacer(modifier = Modifier.height(20.dp))
 
+                // Section: Lokasi Manual vs GPS Otomatis
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color.White.copy(alpha = 0.04f), RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                ) {
+                    val isManualLoc by locationViewModel.isManualLocation.collectAsState()
+                    val currentAddress by locationViewModel.locationName.collectAsState()
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Lokasi & Koordinat",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                            Text(
+                                text = if (isManualLoc) "Kota Manual: $currentAddress" else "GPS Otomatis Aktif",
+                                fontSize = 11.sp,
+                                color = Color(0xFFB2DFDB)
+                            )
+                        }
+                        
+                        Button(
+                            onClick = {
+                                if (isManualLoc) {
+                                    locationViewModel.setAutoLocation()
+                                    Toast.makeText(context, "Harap sinkron GPS otomatis", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    // Set default manual ke Jakarta
+                                    locationViewModel.setManualLocation("Jakarta", -6.2088, 106.8456)
+                                    Toast.makeText(context, "Beralih ke Kota Manual Jakarta", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isManualLoc) Color(0xFF7E1C1C) else Color(0xFF004D40)
+                            ),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                            modifier = Modifier.height(30.dp)
+                        ) {
+                            Text(
+                                text = if (isManualLoc) "Gunakan GPS" else "Set Manual",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+
+                    if (isManualLoc) {
+                        val indonesianCities = mapOf(
+                            "Jakarta" to Pair(-6.2088, 106.8456),
+                            "Surabaya" to Pair(-7.2575, 112.7521),
+                            "Bandung" to Pair(-6.9175, 107.6191),
+                            "Medan" to Pair(3.5952, 98.6722),
+                            "Bekasi" to Pair(-6.2349, 106.9896),
+                            "Depok" to Pair(-6.4025, 106.7942),
+                            "Tangerang" to Pair(-6.1702, 106.6400),
+                            "Semarang" to Pair(-6.9932, 110.4203),
+                            "Palembang" to Pair(-2.9761, 104.7754),
+                            "Makassar" to Pair(-5.1477, 119.4327),
+                            "Yogyakarta" to Pair(-7.7971, 110.3688),
+                            "Bogor" to Pair(-6.5971, 106.8060),
+                            "Batam" to Pair(1.0457, 104.0305),
+                            "Pekanbaru" to Pair(0.5071, 101.4478),
+                            "Banjarmasin" to Pair(-3.3194, 114.5908),
+                            "Pontianak" to Pair(-0.0263, 109.3425),
+                            "Samarinda" to Pair(-0.5021, 117.1536),
+                            "Manado" to Pair(1.4748, 124.8421),
+                            "Denpasar" to Pair(-8.6705, 115.2126),
+                            "Aceh" to Pair(5.5483, 95.3238)
+                        )
+
+                        var searchQuery by remember { mutableStateOf("") }
+                        val filteredCities = remember(searchQuery) {
+                            indonesianCities.keys.filter { it.contains(searchQuery, ignoreCase = true) }
+                        }
+
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = { Text("Cari kota Indonesia...", color = Color.White.copy(alpha = 0.4f), fontSize = 12.sp) },
+                            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.size(16.dp)) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                                .padding(top = 8.dp),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                focusedBorderColor = Color(0xFFD4AF37),
+                                unfocusedBorderColor = Color.White.copy(alpha = 0.3f)
+                            )
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 140.dp)
+                                .background(Color.Black.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                                .padding(4.dp)
+                        ) {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxWidth().heightIn(max = 130.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                items(filteredCities) { city ->
+                                    val coords = indonesianCities[city]!!
+                                    val isSelected = currentAddress.contains(city, ignoreCase = true)
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                locationViewModel.setManualLocation(city, coords.first, coords.second)
+                                                Toast.makeText(context, "$city dipilih.", Toast.LENGTH_SHORT).show()
+                                            }
+                                            .background(
+                                                if (isSelected) Color(0xFFD4AF37).copy(alpha = 0.15f) else Color.Transparent,
+                                                RoundedCornerShape(6.dp)
+                                            )
+                                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = city,
+                                            color = if (isSelected) Color(0xFFD4AF37) else Color.White,
+                                            fontSize = 12.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                        Text(
+                                            text = "${coords.first}, ${coords.second}",
+                                            color = Color.White.copy(alpha = 0.5f),
+                                            fontSize = 10.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
                 // Label Section Suara
                 Text(
                     text = "PILIHAN SUARA ADZAN",
@@ -1320,7 +1483,7 @@ fun GridMenuSection(
         Triple("Bulanan", Icons.Default.TableChart, id.ideahousetech.prayertime_qibla.AppScreen.JADWAL),
         Triple("Doa-Doa", Icons.Default.MenuBook, id.ideahousetech.prayertime_qibla.AppScreen.DOA),
         Triple("Al-Qur'an", Icons.Default.MenuBook, id.ideahousetech.prayertime_qibla.AppScreen.QURAN),
-        Triple("Dzikir", Icons.Default.Brightness5, null),
+        Triple("Tasbih", Icons.Default.Cached, id.ideahousetech.prayertime_qibla.AppScreen.TASBIH),
         Triple("Masjid", Icons.Default.Place, null),
         Triple("Sholawat", Icons.Default.Audiotrack, null)
     )
