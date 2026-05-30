@@ -67,6 +67,55 @@ class PrayerService(private val context: Context) {
         val sharedPrefs = SecurePrefs.get(context)
         val offset = sharedPrefs.getInt("prayer_time_offset", 0)
 
+        // 1. Cek cache database
+        val database = id.ideahousetech.prayertime_qibla.data.AppDatabase.getInstance(context)
+        val cacheDao = database.prayerCacheDao()
+        
+        // Bersihkan cache yang kadaluwarsa (> 24 jam)
+        val expirationTime = System.currentTimeMillis() - (24 * 60 * 60 * 1000L)
+        try {
+            cacheDao.clearExpiredCache(expirationTime)
+        } catch (e: Exception) {
+            Log.e("PrayerService", "Gagal membersihkan cache kedaluwarsa: ${e.message}")
+        }
+
+        // Coba ambil data ter-cache
+        var cachedData: id.ideahousetech.prayertime_qibla.data.PrayerTimeCache? = null
+        try {
+            cachedData = cacheDao.getCache(year, month)
+        } catch (e: Exception) {
+            Log.e("PrayerService", "Gagal mengambil cache dari database: ${e.message}")
+        }
+
+        if (cachedData != null) {
+            // Cek apakah koordinat saat ini mendekati koordinat ter-cache (jarak threshold ~0.05 derajat, sktr 5km)
+            val latDiff = kotlin.math.abs(cachedData.latitude - latitude)
+            val lonDiff = kotlin.math.abs(cachedData.longitude - longitude)
+            val isLocationValid = latDiff < 0.05 && lonDiff < 0.05
+            
+            if (isLocationValid) {
+                try {
+                    val moshi = com.squareup.moshi.Moshi.Builder()
+                        .add(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                        .build()
+                    val listType = com.squareup.moshi.Types.newParameterizedType(List::class.java, PrayerTime::class.java)
+                    val adapter = moshi.adapter<List<PrayerTime>>(listType)
+                    val deserialized = adapter.fromJson(cachedData.jsonData)
+                    if (deserialized != null && deserialized.isNotEmpty()) {
+                        Log.d("PrayerService", "Menggunakan cache jadwal sholat dari database (Lat/Lon cocok)")
+                        return@withContext deserialized.map { applyOffsetToPrayerTime(it, offset) }
+                    }
+                } catch (e: Exception) {
+                    Log.e("PrayerService", "Gagal deserialisasi cache JSON: ${e.message}")
+                }
+            } else {
+                Log.d("PrayerService", "Cache ditemukan tetapi lokasi berbeda (latDiff: $latDiff, lonDiff: $lonDiff). Melakukan pengambilan baru...")
+            }
+        }
+
+        // Ambil data baru jika tidak ada cache, koordinat berubah, atau kadaluwarsa
+        var resultList: List<PrayerTime>? = null
+
         try {
             val response = aladhanApi.getMonthlyCalendar(
                 latitude = latitude,
@@ -79,17 +128,42 @@ class PrayerService(private val context: Context) {
                 val list = response.data.map { item ->
                     mapApiItemToPrayerTime(item)
                 }
-                return@withContext list.map { applyOffsetToPrayerTime(it, offset) }
+                resultList = list
             } else {
                 Log.w("PrayerService", "API respons tidak sukses, menggunakan perhitungan astronomis lokal")
-                val list = calculateOfflineMonthlyPrayerTimes(latitude, longitude, month, year)
-                return@withContext list
+                resultList = calculateOfflineMonthlyPrayerTimes(latitude, longitude, month, year)
             }
         } catch (e: Exception) {
             Log.e("PrayerService", "Gagal fetch API jadwal sholat: ${e.message}", e)
-            val list = calculateOfflineMonthlyPrayerTimes(latitude, longitude, month, year)
-            return@withContext list
+            resultList = calculateOfflineMonthlyPrayerTimes(latitude, longitude, month, year)
         }
+
+        // Simpan hasil baru ke cache jika sukses didapat
+        if (resultList != null && resultList.isNotEmpty()) {
+            try {
+                val moshi = com.squareup.moshi.Moshi.Builder()
+                    .add(com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory())
+                    .build()
+                val listType = com.squareup.moshi.Types.newParameterizedType(List::class.java, PrayerTime::class.java)
+                val adapter = moshi.adapter<List<PrayerTime>>(listType)
+                val jsonString = adapter.toJson(resultList)
+                
+                val newCache = id.ideahousetech.prayertime_qibla.data.PrayerTimeCache(
+                    year = year,
+                    month = month,
+                    latitude = latitude,
+                    longitude = longitude,
+                    jsonData = jsonString,
+                    cachedAt = System.currentTimeMillis()
+                )
+                cacheDao.insertCache(newCache)
+                Log.d("PrayerService", "Menyimpan jadwal sholat baru ke cache database untuk tahun $year bulan $month")
+            } catch (e: Exception) {
+                Log.e("PrayerService", "Gagal menyimpan ke database cache: ${e.message}")
+            }
+        }
+
+        return@withContext (resultList ?: emptyList()).map { applyOffsetToPrayerTime(it, offset) }
     }
 
     /**

@@ -32,6 +32,78 @@ class NotificationService(private val context: Context) {
         context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
+    private var mediaPlayer: MediaPlayer? = null
+
+    private fun releasePlayer() {
+        mediaPlayer?.apply {
+            try {
+                if (isPlaying) stop()
+            } catch (e: Exception) {
+                Log.e("NotificationService", "Gagal menghentikan player: ${e.message}")
+            }
+            release()
+        }
+        mediaPlayer = null
+    }
+
+    fun playAdzanAudio(isFajr: Boolean) {
+        try {
+            stopAdzanAudio() // yakinkan dibersihkan terlebih dahulu
+
+            val prefs = SecurePrefs.get(context)
+            val isAlarmEnabled = prefs.getBoolean("enable_adzan_alarm", true)
+            if (!isAlarmEnabled) {
+                Log.d("NotificationService", "Alarm adzan dinonaktifkan di pengaturan.")
+                return
+            }
+
+            val audioFileName = if (isFajr) "adzan_fajr.mp3" else "adzan.mp3"
+            val file = File(context.filesDir, audioFileName)
+
+            val prefKey = if (isFajr) "custom_adzan_fajr_name" else "custom_adzan_name"
+            val hasCustom = prefs.getString(prefKey, null) != null
+
+            mediaPlayer = MediaPlayer().apply {
+                if (file.exists() && (hasCustom || file.length() > 30000)) { // Jika file asli yang valid ada atau kustom ada
+                    setDataSource(file.absolutePath)
+                } else {
+                    // Fallback ke ringtone default Alarm perangkat jika dummy file
+                    val notificationUri: Uri = Uri.parse("android.resource://" + context.packageName + "/raw/" + (if (isFajr) "adzan_fajr" else "adzan"))
+                    try {
+                        setDataSource(context, notificationUri)
+                    } catch (e: Exception) {
+                        // Total fallback
+                        val defaultUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
+                        setDataSource(context, defaultUri)
+                    }
+                }
+                prepare()
+                isLooping = false
+                setOnCompletionListener {
+                    Log.d("NotificationService", "Adzan selesai diputar, melakukan pembersihan player.")
+                    releasePlayer()
+                }
+                start()
+            }
+
+            // Hentikan adzan secara otomatis setelah 60 detik agar tidak bersuara terus-terusan
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                stopAdzanAudio()
+            }, 60000)
+
+        } catch (e: Exception) {
+            Log.e("NotificationService", "Gagal memutar suara adzan: ${e.message}")
+        }
+    }
+
+    fun stopAdzanAudio() {
+        try {
+            releasePlayer()
+        } catch (e: Exception) {
+            Log.e("NotificationService", "Gagal melepaskan MediaPlayer: ${e.message}")
+        }
+    }
+
     companion object {
         const val CHANNEL_ID = "islamic_prayer_alarms"
         const val CHANNEL_NAME = "Jadwal Waktu Sholat & Adzan"
@@ -40,8 +112,14 @@ class NotificationService(private val context: Context) {
         const val EXTRA_PRAYER_NAME = "prayer_name"
         const val EXTRA_IS_FAJR = "is_fajr"
 
-        // Objek media player global untuk menangani pemberhentian adzan
-        var mediaPlayer: MediaPlayer? = null
+        @Volatile
+        private var instance: NotificationService? = null
+
+        fun getInstance(context: Context): NotificationService {
+            return instance ?: synchronized(this) {
+                instance ?: NotificationService(context.applicationContext).also { instance = it }
+            }
+        }
     }
 
     init {
@@ -301,10 +379,12 @@ class AlarmReceiver : BroadcastReceiver() {
             showHeadsUpNotification(context, prayerName, isFajr)
 
             // 2. Putar Suara Adzan
-            playAdzanAudio(context, isFajr)
+            val service = NotificationService.getInstance(context)
+            service.playAdzanAudio(isFajr)
         } else if (intent.action == NotificationService.ACTION_STOP_ADZAN) {
             Log.d("AlarmReceiver", "Aksi stop adzan ditekan.")
-            stopAdzanAudio()
+            val service = NotificationService.getInstance(context)
+            service.stopAdzanAudio()
             
             // Hapus notifikasi setelah ditekan hentikan
             val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -356,65 +436,5 @@ class AlarmReceiver : BroadcastReceiver() {
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
 
         notificationManager.notify(1001, builder.build())
-    }
-
-    private fun playAdzanAudio(context: Context, isFajr: Boolean) {
-        try {
-            stopAdzanAudio() // yakinkan dibersihkan terlebih dahulu
-
-            val prefs = SecurePrefs.get(context)
-            val isAlarmEnabled = prefs.getBoolean("enable_adzan_alarm", true)
-            if (!isAlarmEnabled) {
-                Log.d("AlarmReceiver", "Alarm adzan dinonaktifkan di pengaturan.")
-                return
-            }
-
-            val audioFileName = if (isFajr) "adzan_fajr.mp3" else "adzan.mp3"
-            val file = File(context.filesDir, audioFileName)
-
-            val prefKey = if (isFajr) "custom_adzan_fajr_name" else "custom_adzan_name"
-            val hasCustom = prefs.getString(prefKey, null) != null
-
-            NotificationService.mediaPlayer = MediaPlayer().apply {
-                if (file.exists() && (hasCustom || file.length() > 30000)) { // Jika file asli yang valid ada atau kustom ada
-                    setDataSource(file.absolutePath)
-                } else {
-                    // Fallback ke ringtone default Alarm perangkat jika dummy file
-                    val notificationUri: Uri = Uri.parse("android.resource://" + context.packageName + "/raw/" + (if (isFajr) "adzan_fajr" else "adzan"))
-                    try {
-                        setDataSource(context, notificationUri)
-                    } catch (e: Exception) {
-                        // Total fallback
-                        val defaultUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
-                        setDataSource(context, defaultUri)
-                    }
-                }
-                prepare()
-                isLooping = false
-                start()
-            }
-
-            // Hentikan adzan secara otomatis setelah 60 detik agar tidak bersuara terus-terusan
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                stopAdzanAudio()
-            }, 60000)
-
-        } catch (e: Exception) {
-            Log.e("AlarmReceiver", "Gagal memutar suara adzan: ${e.message}")
-        }
-    }
-
-    private fun stopAdzanAudio() {
-        try {
-            NotificationService.mediaPlayer?.let {
-                if (it.isPlaying) {
-                    it.stop()
-                }
-                it.release()
-            }
-            NotificationService.mediaPlayer = null
-        } catch (e: Exception) {
-            Log.e("AlarmReceiver", "Gagal melepaskan MediaPlayer: ${e.message}")
-        }
     }
 }

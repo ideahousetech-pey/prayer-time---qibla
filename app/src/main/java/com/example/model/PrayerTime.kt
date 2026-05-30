@@ -1,10 +1,13 @@
 package id.ideahousetech.prayertime_qibla.model
 
+import com.squareup.moshi.JsonClass
+
 /**
  * Model data untuk mempresentasikan jadwal waktu sholat harian.
  * Berisi waktu sholat untuk Subuh (Fajr), Dzuhur (Dhuhr), Ashar (Asr), Maghrib, dan Isya (Isha).
  * Dilengkapi dengan format tanggal Gregorian serta tanggal Hijriah terkait.
  */
+@JsonClass(generateAdapter = true)
 data class PrayerTime(
     val dateGregorian: String,      // Format: "Rabu, 13 Mei 2026"
     val dateHijri: String,          // Format: "13 Dzulqa'dah 1447 H"
