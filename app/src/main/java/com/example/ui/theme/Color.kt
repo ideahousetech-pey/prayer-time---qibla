@@ -2,16 +2,28 @@ package id.ideahousetech.prayertime_qibla.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Frosted Glass Aesthetic Colors
-val DeepEmeraldBackground = Color(0xFF004D40) // Deep spiritual emerald green
-val DeepEmeraldDarkNav = Color(0xFF00382F)    // Darkened bottom navigation
-val FrostedGlassSurface = Color(0x21FFFFFF)   // Elegant semi-transparent glass panel (13% white)
-val FrostedGlassBorder = Color(0x33FFFFFF)    // Glass rim border (20% white)
+// Background Layers
+val DeepNight        = Color(0xFF0A1628)   // Background utama — midnight navy
+val MidnightLayer    = Color(0xFF0F1F3D)   // Layer kedua — biru tua gelap
+val CardSurface      = Color(0xFF162035)   // Permukaan card
+val CardElevated     = Color(0xFF1C2A44)   // Card lebih terang
 
-val GoldAccent = Color(0xFFD4AF37)            // Classic Metallic Gold
-val GoldBright = Color(0xFFFFD700)            // Radiant Gold Accent
-val WhiteText = Color(0xFFFFFFFF)              // Primary readable text
-val LightTealText = Color(0xFFB2DFDB)          // Soft contrast teal text
-val TranslucentBlack = Color(0x3300000).copy(alpha = 0.2f) // Black backdrop tint
+// Gold Hierarchy
+val GoldPrimary      = Color(0xFFD4AF37)   // Gold klasik — elemen utama
+val GoldLight        = Color(0xFFF5E27A)   // Gold cerah — highlights
+val GoldDim          = Color(0xFF8B7420)   // Gold redup — subtle accents
+val GoldGlow         = Color(0x33D4AF37)   // Gold transparan — glow effect
 
+// Teal Accent
+val TealAccent       = Color(0xFF4DB6AC)   // Teal — secondary accent
+val TealDim          = Color(0xFF1A4A47)   // Teal gelap
 
+// Text
+val TextPrimary      = Color(0xFFF0F4FF)   // Putih kebiruan — teks utama
+val TextSecondary    = Color(0xFF8B9DC3)   // Abu biru — teks sekunder
+val TextMuted        = Color(0xFF4A5A7A)   // Abu gelap — teks tersier
+
+// Semantic
+val SuccessGreen     = Color(0xFF4CAF82)
+val WarningAmber     = Color(0xFFFFB74D)
+val DividerLine      = Color(0x1AF0F4FF)   // Garis pemisah tipis

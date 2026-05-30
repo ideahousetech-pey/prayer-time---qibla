@@ -1,4 +1,5 @@
 import java.net.URL
+import java.io.File
 
 plugins {
   alias(libs.plugins.android.application)
@@ -128,19 +129,27 @@ dependencies {
   implementation(libs.androidx.security.crypto)
 }
 
-tasks.register("downloadAssets") {
-    doLast {
-        val assetsDir = file("src/main/assets")
-        if (!assetsDir.exists()) {
-            assetsDir.mkdirs()
+abstract class DownloadAssetsTask : DefaultTask() {
+    @get:OutputDirectory
+    abstract val assetsDir: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val fontDir: DirectoryProperty
+
+    @TaskAction
+    fun run() {
+        val targetAssets = assetsDir.get().asFile
+        if (!targetAssets.exists()) {
+            targetAssets.mkdirs()
         }
-        val adzanFile = file("src/main/assets/adzan.mp3")
-        if (!adzanFile.exists()) {
+        val adzanFile = File(targetAssets, "adzan.mp3")
+        if (!adzanFile.exists() || adzanFile.length() < 10) {
             try {
                 println("Downloading adzan.mp3...")
                 val connection = URL("https://archive.org/download/adhan_202206/adhan.mp3").openConnection()
-                connection.connectTimeout = 3000
-                connection.readTimeout = 3000
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0")
+                connection.connectTimeout = 8000
+                connection.readTimeout = 8000
                 connection.getInputStream().use { input ->
                     adzanFile.outputStream().use { output ->
                         input.copyTo(output)
@@ -149,17 +158,17 @@ tasks.register("downloadAssets") {
                 println("adzan.mp3 download success.")
             } catch (e: Exception) {
                 println("Failed to download adzan.mp3: ${e.message}")
-                // Write a tiny 1-byte placeholder so we don't try again and block build
                 adzanFile.writeBytes(ByteArray(1))
             }
         }
-        val adzanFajrFile = file("src/main/assets/adzan_fajr.mp3")
-        if (!adzanFajrFile.exists()) {
+        val adzanFajrFile = File(targetAssets, "adzan_fajr.mp3")
+        if (!adzanFajrFile.exists() || adzanFajrFile.length() < 10) {
             try {
                 println("Downloading adzan_fajr.mp3...")
                 val connection = URL("https://archive.org/download/AzanMadinah_201712/azan_madinah.mp3").openConnection()
-                connection.connectTimeout = 3000
-                connection.readTimeout = 3000
+                connection.setRequestProperty("User-Agent", "Mozilla/5.0")
+                connection.connectTimeout = 8000
+                connection.readTimeout = 8000
                 connection.getInputStream().use { input ->
                     adzanFajrFile.outputStream().use { output ->
                         input.copyTo(output)
@@ -168,12 +177,70 @@ tasks.register("downloadAssets") {
                 println("adzan_fajr.mp3 download success.")
             } catch (e: Exception) {
                 println("Failed to download adzan_fajr.mp3: ${e.message}")
-                // Write a tiny 1-byte placeholder so we don't try again and block build
                 adzanFajrFile.writeBytes(ByteArray(1))
+            }
+        }
+        
+        val targetFonts = fontDir.get().asFile
+        if (!targetFonts.exists()) {
+            targetFonts.mkdirs()
+        }
+        val fonts = mapOf(
+            "cinzel_regular.ttf" to "https://raw.githubusercontent.com/google/fonts/main/ofl/cinzel/static/Cinzel-Regular.ttf",
+            "cinzel_bold.ttf" to "https://raw.githubusercontent.com/google/fonts/main/ofl/cinzel/static/Cinzel-Bold.ttf",
+            "nunito_light.ttf" to "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/static/Nunito-Light.ttf",
+            "nunito_regular.ttf" to "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/static/Nunito-Regular.ttf",
+            "nunito_semibold.ttf" to "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/static/Nunito-SemiBold.ttf",
+            "nunito_bold.ttf" to "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/static/Nunito-Bold.ttf"
+        )
+        for ((name, urlStr) in fonts) {
+            val fontFile = File(targetFonts, name)
+            if (!fontFile.exists() || fontFile.length() < 100) {
+                try {
+                    println("Downloading font $name...")
+                    val connection = URL(urlStr).openConnection()
+                    connection.setRequestProperty("User-Agent", "Mozilla/5.0")
+                    connection.connectTimeout = 8000
+                    connection.readTimeout = 8000
+                    connection.getInputStream().use { input ->
+                        fontFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    println("Downloaded font $name successfully.")
+                } catch (e: Exception) {
+                    println("Failed to download font $name: ${e.message}. Using backup URL...")
+                    try {
+                        val backupUrl = urlStr.replace("static/", "")
+                        val connection = URL(backupUrl).openConnection()
+                        connection.setRequestProperty("User-Agent", "Mozilla/5.0")
+                        connection.connectTimeout = 8000
+                        connection.readTimeout = 8000
+                        connection.getInputStream().use { input ->
+                            fontFile.outputStream().use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                        println("Downloaded font $name successfully from backup.")
+                    } catch (e2: Exception) {
+                        println("Backup URL failed too: ${e2.message}")
+                    }
+                }
             }
         }
     }
 }
+
+val downloadAssets = tasks.register<DownloadAssetsTask>("downloadAssets") {
+    assetsDir.set(layout.projectDirectory.dir("src/main/assets"))
+    fontDir.set(layout.projectDirectory.dir("src/main/res/font"))
+}
+
+tasks.named("preBuild") {
+    dependsOn(downloadAssets)
+}
+
+
 
 
 

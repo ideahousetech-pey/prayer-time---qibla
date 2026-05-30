@@ -100,6 +100,7 @@ import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.runtime.DisposableEffect
 import java.io.File
 import java.io.FileOutputStream
+import id.ideahousetech.prayertime_qibla.ui.theme.*
 
 /**
  * Screen utama aplikasi Waktu Sholat & Kiblat.
@@ -228,16 +229,18 @@ fun HeaderSection(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = gregorianDate,
-                fontSize = 15.sp,
+                fontSize = 14.sp,
+                fontFamily = NunitoFont,
                 fontWeight = FontWeight.Light,
-                color = Color(0xFFB2DFDB) // Soft light-teal theme text
+                color = TextSecondary
             )
             Text(
                 text = hijriDate,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = (-0.5).sp,
-                color = MaterialTheme.colorScheme.primary, // Glorious Gold Accent
+                fontSize = 22.sp,
+                fontFamily = CinzelFont,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp,
+                color = GoldPrimary,
                 modifier = Modifier.padding(top = 2.dp)
             )
         }
@@ -246,14 +249,14 @@ fun HeaderSection(
             onClick = onSettingsClick,
             modifier = Modifier
                 .size(40.dp)
-                .background(Color.White.copy(alpha = 0.08f), CircleShape)
-                .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape)
+                .background(CardSurface, CircleShape)
+                .border(1.dp, DividerLine, CircleShape)
                 .testTag("settings_button")
         ) {
             Icon(
                 imageVector = Icons.Default.Settings,
                 contentDescription = "Pengaturan",
-                tint = MaterialTheme.colorScheme.primary,
+                tint = GoldPrimary,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -269,16 +272,49 @@ fun LocationSection(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.Start,
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = locationName.ifEmpty { "Mencari Lokasi GPS..." },
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White // High contrast readable white
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.weight(1f)
+        ) {
+            Icon(
+                imageVector = Icons.Default.LocationOn,
+                contentDescription = "Lokasi",
+                tint = TealAccent,
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = locationName.ifEmpty { "Mencari Lokasi GPS..." },
+                fontSize = 14.sp,
+                fontFamily = NunitoFont,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+        }
+
+        IconButton(
+            onClick = onRefreshClick,
+            modifier = Modifier.size(32.dp)
+        ) {
+            if (isLoading) {
+                androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    color = GoldPrimary,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.MyLocation,
+                    contentDescription = "Perbarui Lokasi",
+                    tint = GoldPrimary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
     }
 }
 
@@ -367,12 +403,12 @@ fun NextPrayerCard(
             .padding(horizontal = 16.dp)
             .border(
                 width = 1.dp,
-                color = Color.White.copy(alpha = 0.18f),
+                color = GoldPrimary.copy(alpha = 0.25f),
                 shape = RoundedCornerShape(24.dp)
             ),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White.copy(alpha = 0.08f)
+            containerColor = CardSurface
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -382,8 +418,8 @@ fun NextPrayerCard(
                 .background(
                     brush = Brush.verticalGradient(
                         colors = listOf(
-                            Color.White.copy(alpha = 0.08f),
-                            Color.White.copy(alpha = 0.02f)
+                            CardSurface,
+                            MidnightLayer
                         )
                     )
                 )
@@ -416,12 +452,12 @@ fun NextPrayerCard(
                         Box(
                             modifier = Modifier
                                 .background(
-                                    color = if (isCurrent) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.04f),
+                                    color = if (isCurrent) GoldPrimary.copy(alpha = 0.15f) else CardElevated,
                                     shape = RoundedCornerShape(12.dp)
                                 )
                                 .border(
                                     width = 1.dp,
-                                    color = if (isCurrent) Color.White.copy(alpha = 0.15f) else Color.White.copy(alpha = 0.08f),
+                                    color = if (isCurrent) GoldPrimary.copy(alpha = 0.3f) else DividerLine,
                                     shape = RoundedCornerShape(12.dp)
                                 )
                                 .padding(horizontal = 12.dp, vertical = 6.dp)
@@ -429,9 +465,10 @@ fun NextPrayerCard(
                             Text(
                                 text = statusLabel,
                                 fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
+                                fontFamily = NunitoFont,
+                                fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.sp,
-                                color = if (isCurrent) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.5f)
+                                color = if (isCurrent) GoldLight else TextSecondary
                             )
                         }
 
@@ -441,8 +478,9 @@ fun NextPrayerCard(
                         Text(
                             text = "${prayer.labelText} (${prayer.arabicName})",
                             fontSize = 24.sp,
+                            fontFamily = CinzelFont,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White,
+                            color = TextPrimary,
                             textAlign = TextAlign.Center
                         )
 
@@ -452,9 +490,10 @@ fun NextPrayerCard(
                         Text(
                             text = prayer.time,
                             fontSize = 62.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = (-1.5).sp,
-                            color = Color.White,
+                            fontFamily = CinzelFont,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-1).sp,
+                            color = GoldPrimary,
                             textAlign = TextAlign.Center
                         )
 
@@ -468,8 +507,9 @@ fun NextPrayerCard(
                                 Text(
                                     text = "HITUNG MUNDUR",
                                     fontSize = 11.sp,
+                                    fontFamily = NunitoFont,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White.copy(alpha = 0.5f),
+                                    color = TextSecondary,
                                     letterSpacing = 0.5.sp
                                 )
                                 Spacer(modifier = Modifier.height(4.dp))
@@ -479,7 +519,7 @@ fun NextPrayerCard(
                                     Icon(
                                         imageVector = Icons.Default.Alarm,
                                         contentDescription = "Timer",
-                                        tint = MaterialTheme.colorScheme.secondary,
+                                        tint = TealAccent,
                                         modifier = Modifier
                                             .size(18.dp)
                                             .padding(end = 2.dp)
@@ -487,8 +527,9 @@ fun NextPrayerCard(
                                     Text(
                                         text = countdownStr,
                                         fontSize = 24.sp,
+                                        fontFamily = NunitoFont,
                                         fontWeight = FontWeight.Black,
-                                        color = MaterialTheme.colorScheme.secondary,
+                                        color = TealAccent,
                                         letterSpacing = 0.5.sp
                                     )
                                 }
@@ -496,8 +537,9 @@ fun NextPrayerCard(
                                 Text(
                                     text = if (page < activeIndex) "Waktu Sholat Telah Tiba" else "Waktu Sholat Mendatang",
                                     fontSize = 13.sp,
+                                    fontFamily = NunitoFont,
                                     fontWeight = FontWeight.Medium,
-                                    color = Color.White.copy(alpha = 0.4f),
+                                    color = TextMuted,
                                     textAlign = TextAlign.Center
                                 )
                             }
@@ -518,7 +560,7 @@ fun NextPrayerCard(
                             modifier = Modifier
                                 .size(if (isIndicatorActive) 8.dp else 5.dp)
                                 .background(
-                                    color = if (isIndicatorActive) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.25f),
+                                    color = if (isIndicatorActive) GoldPrimary else TextMuted,
                                     shape = CircleShape
                                 )
                         )
@@ -537,11 +579,11 @@ fun ReminderNoteCard() {
             .padding(16.dp)
             .border(
                 width = 1.dp,
-                color = Color.White.copy(alpha = 0.15f),
+                color = GoldPrimary.copy(alpha = 0.20f),
                 shape = RoundedCornerShape(16.dp)
             ),
         colors = CardDefaults.cardColors(
-            containerColor = Color.White.copy(alpha = 0.08f)
+            containerColor = CardSurface
         ),
         shape = RoundedCornerShape(16.dp)
     ) {
@@ -552,7 +594,7 @@ fun ReminderNoteCard() {
             Icon(
                 imageVector = Icons.Default.Info,
                 contentDescription = "Kutipan Harian",
-                tint = MaterialTheme.colorScheme.primary, // Gold Icon
+                tint = GoldPrimary, // Gold Icon
                 modifier = Modifier.size(22.dp)
             )
             Spacer(modifier = Modifier.width(12.dp))
@@ -560,15 +602,17 @@ fun ReminderNoteCard() {
                 Text(
                     text = "Amalan Sholat Tepat Waktu",
                     fontSize = 14.sp,
+                    fontFamily = CinzelFont,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White // Elegant white header
+                    color = TextPrimary // Elegant white header
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "\"Sesungguhnya sholat itu bagi orang-orang yang beriman adalah kewajiban yang ditentukan waktunya.\"\n— QS. An-Nisa': 103",
                     fontSize = 12.sp,
+                    fontFamily = NunitoFont,
                     lineHeight = 16.sp,
-                    color = Color(0xFFB2DFDB) // Soft light teal text
+                    color = TextSecondary // Soft light teal text
                 )
             }
         }
@@ -1494,11 +1538,11 @@ fun GridMenuSection(
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .border(
                 width = 1.dp,
-                color = Color.White.copy(alpha = 0.15f),
+                color = GoldPrimary.copy(alpha = 0.15f),
                 shape = RoundedCornerShape(24.dp)
             ),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f))
+        colors = CardDefaults.cardColors(containerColor = CardSurface)
     ) {
         Column(
             modifier = Modifier
@@ -1509,8 +1553,9 @@ fun GridMenuSection(
             Text(
                 text = "MENU UTAMA",
                 fontSize = 11.sp,
-                fontWeight = FontWeight.Black,
-                color = MaterialTheme.colorScheme.primary, // Gold text
+                fontFamily = CinzelFont,
+                fontWeight = FontWeight.Bold,
+                color = GoldPrimary, // Gold text
                 letterSpacing = 1.5.sp,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
@@ -1535,8 +1580,8 @@ fun GridMenuSection(
                                     modifier = Modifier
                                         .size(56.dp)
                                         .clip(CircleShape)
-                                        .background(Color.White.copy(alpha = 0.08f))
-                                        .border(2.dp, Color.White.copy(alpha = 0.15f), CircleShape)
+                                        .background(CardElevated)
+                                        .border(1.5.dp, GoldPrimary.copy(alpha = 0.3f), CircleShape)
                                         .clickable {
                                             if (item.third != null) {
                                                 onNavigateToScreen(item.third!!)
@@ -1555,7 +1600,7 @@ fun GridMenuSection(
                                     Icon(
                                         imageVector = item.second,
                                         contentDescription = item.first,
-                                        tint = MaterialTheme.colorScheme.primary, // Luxurious Gold
+                                        tint = GoldPrimary, // Luxurious Gold
                                         modifier = Modifier.size(24.dp)
                                     )
                                 }
@@ -1565,8 +1610,9 @@ fun GridMenuSection(
                                 Text(
                                     text = item.first,
                                     fontSize = 11.sp,
+                                    fontFamily = NunitoFont,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White.copy(alpha = 0.9f),
+                                    color = TextSecondary,
                                     textAlign = TextAlign.Center
                                 )
                             }

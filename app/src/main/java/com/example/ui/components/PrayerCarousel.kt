@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import id.ideahousetech.prayertime_qibla.model.PrayerTime
+import id.ideahousetech.prayertime_qibla.ui.theme.*
 
 /**
  * Widget Carousel horizontal untuk menampilkan jadwal waktu sholat 5 waktu hari ini.
@@ -65,13 +66,13 @@ fun PrayerItemCard(
 ) {
     val baseCardColors = if (isHighlighted) {
         CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primary, // Solid premium Gold
-            contentColor = Color(0xFF00382F) // Dark contrast text
+            containerColor = GoldPrimary, // Solid premium Gold
+            contentColor = DeepNight // Dark contrast text
         )
     } else {
         CardDefaults.cardColors(
-            containerColor = Color.White.copy(alpha = 0.08f), // Elegant frosted glass base
-            contentColor = Color.White
+            containerColor = CardSurface, // Elegant premium card surface base
+            contentColor = TextPrimary
         )
     }
 
@@ -80,8 +81,8 @@ fun PrayerItemCard(
             width = 2.dp,
             brush = Brush.horizontalGradient(
                 listOf(
-                    Color(0xFFFFD700),
-                    Color(0xFFFFFFFF)
+                    GoldLight,
+                    GoldPrimary
                 )
             ),
             shape = RoundedCornerShape(16.dp)
@@ -89,7 +90,7 @@ fun PrayerItemCard(
     } else {
         Modifier.border(
             width = 1.dp,
-            color = Color.White.copy(alpha = 0.15f), // Thin semi-transparent glass border
+            color = DividerLine, // Thin semi-transparent glass border
             shape = RoundedCornerShape(16.dp)
         )
     }
@@ -112,15 +113,17 @@ fun PrayerItemCard(
         ) {
             Text(
                 text = prayer.name,
-                fontSize = 15.sp,
+                fontSize = 14.sp,
+                fontFamily = NunitoFont,
                 fontWeight = FontWeight.Bold,
-                color = if (isHighlighted) Color(0xFF00382F) else Color.White
+                color = if (isHighlighted) DeepNight else TextPrimary
             )
             
             Text(
                 text = "(${prayer.arabicName})",
                 fontSize = 11.sp,
-                color = if (isHighlighted) Color(0xFF00382F).copy(alpha = 0.75f) else Color(0xFFB2DFDB), // soft light teal
+                fontFamily = CinzelFont,
+                color = if (isHighlighted) DeepNight.copy(alpha = 0.75f) else TextSecondary,
                 modifier = Modifier.padding(top = 2.dp)
             )
             
@@ -130,7 +133,7 @@ fun PrayerItemCard(
                 modifier = Modifier
                     .background(
                         color = if (isHighlighted) Color.White.copy(alpha = 0.35f) 
-                                else Color.White.copy(alpha = 0.12f),
+                                else CardElevated,
                         shape = RoundedCornerShape(8.dp)
                     )
                     .padding(horizontal = 8.dp, vertical = 4.dp),
@@ -138,10 +141,11 @@ fun PrayerItemCard(
             ) {
                 Text(
                     text = prayer.time,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Black,
+                    fontSize = 14.sp,
+                    fontFamily = NunitoFont,
+                    fontWeight = FontWeight.Bold,
                     letterSpacing = 0.5.sp,
-                    color = if (isHighlighted) Color(0xFF00382F) else MaterialTheme.colorScheme.primary // Gold text on normal glass
+                    color = if (isHighlighted) DeepNight else GoldPrimary // Gold text on normal glass
                 )
             }
         }

@@ -69,6 +69,9 @@ import id.ideahousetech.prayertime_qibla.ui.DailyScheduleScreen
 import id.ideahousetech.prayertime_qibla.ui.QuranScreen
 import id.ideahousetech.prayertime_qibla.ui.TasbihScreen
 import id.ideahousetech.prayertime_qibla.ui.theme.MyApplicationTheme
+import id.ideahousetech.prayertime_qibla.ui.theme.DeepNight
+import id.ideahousetech.prayertime_qibla.ui.theme.MidnightLayer
+import id.ideahousetech.prayertime_qibla.ui.theme.GoldPrimary
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
 import id.ideahousetech.prayertime_qibla.viewmodel.PrayerViewModel
 import androidx.compose.material.icons.filled.Cached
@@ -200,8 +203,8 @@ fun MainLayout(
             .background(
                 androidx.compose.ui.graphics.Brush.verticalGradient(
                     listOf(
-                        Color(0xFF004D40), // Deep emerald
-                        Color(0xFF002B24)  // Darker deep emerald
+                        DeepNight,
+                        MidnightLayer
                     )
                 )
             )
@@ -225,7 +228,7 @@ fun MainLayout(
                     }
                     drawPath(
                         path = path,
-                        color = Color(0xFFFFD700).copy(alpha = 0.04f), // Delicate gold stroke
+                        color = GoldPrimary.copy(alpha = 0.04f), // Delicate gold stroke
                         style = Stroke(width = 1.dp.toPx())
                     )
                 }
@@ -292,8 +295,8 @@ fun SplashScreen() {
             .background(
                 androidx.compose.ui.graphics.Brush.verticalGradient(
                     listOf(
-                        Color(0xFF004D40), // Deep emerald
-                        Color(0xFF002B24)  // Darker deep emerald
+                        DeepNight,
+                        MidnightLayer
                     )
                 )
             ),
@@ -309,7 +312,7 @@ fun SplashScreen() {
                 modifier = Modifier
                     .size(180.dp)
                     .clip(RoundedCornerShape(32.dp))
-                    .border(2.dp, Color(0xFFD4AF37), RoundedCornerShape(32.dp)),
+                    .border(2.dp, GoldPrimary, RoundedCornerShape(32.dp)),
                 contentAlignment = androidx.compose.ui.Alignment.Center
             ) {
                 Image(
@@ -324,7 +327,7 @@ fun SplashScreen() {
 
             Text(
                 text = "WAKTU SHOLAT & KIBLAT",
-                color = Color(0xFFD4AF37), // Majestic Gold
+                color = GoldPrimary, // Majestic Gold
                 fontSize = 22.sp,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 1.5.sp,
