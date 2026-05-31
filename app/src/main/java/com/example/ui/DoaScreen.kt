@@ -4,20 +4,11 @@ import android.content.ClipboardManager
 import android.content.ClipData
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -26,14 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -49,15 +34,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import id.ideahousetech.prayertime_qibla.ui.components.PremiumTopBar
+import id.ideahousetech.prayertime_qibla.ui.theme.*
 
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-
-/**
- * Screen Kumpulan Doa-Doa harian muslim lengkap.
- * Dilengkapi dengan kolom pencarian interaktif, teks Arab asli berpangkat besar mudah dibaca,
- * transkripsi latin pembacaan (transliterasi), arti bahasa Indonesia lengkap,
- * serta tombol salin taktil (Copy to Clipboard) dengan visual feedback yang responsif.
- */
 @Composable
 fun DoaScreen(
     onBackClick: () -> Unit,
@@ -66,10 +45,8 @@ fun DoaScreen(
     val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
 
-    // Bank data doa harian autentik tanah air
     val doaLibrary = remember { getAuthenticDoaList() }
 
-    // Memfilter koleksi doa harian berdasarkan input kolom pencarian user
     val filteredDoa = remember(searchQuery) {
         if (searchQuery.trim().isEmpty()) {
             doaLibrary
@@ -81,108 +58,95 @@ fun DoaScreen(
         }
     }
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .background(Brush.verticalGradient(listOf(DeepNight, MidnightLayer)))
     ) {
-        // Top Back Button Row
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Start,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = onBackClick,
-                modifier = Modifier
-                    .size(40.dp)
-                    .background(Color.White.copy(alpha = 0.08f), CircleShape)
-                    .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape)
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Kembali ke Menu Utama",
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Header Judul Halaman
-        Text(
-            text = "AL-MANAQIB",
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFFB2DFDB), // Soft light-teal theme text
-            letterSpacing = 2.sp
-        )
-        Text(
-            text = "Kumpulan Doa Pilihan",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Black,
-            color = MaterialTheme.colorScheme.primary, // Gold
-            modifier = Modifier.padding(top = 4.dp)
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Kolom Pencarian / Search Bar (Sleek Glassmorphism Input)
-        OutlinedTextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            placeholder = { Text("Cari doa harian...", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp) },
-            leadingIcon = {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Cari",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            },
+        Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            shape = RoundedCornerShape(12.dp),
-            singleLine = true,
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Color.White,
-                unfocusedTextColor = Color.White,
-                focusedBorderColor = MaterialTheme.colorScheme.primary,
-                unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
-                focusedContainerColor = Color.White.copy(alpha = 0.08f),
-                unfocusedContainerColor = Color.White.copy(alpha = 0.08f)
+                .fillMaxSize()
+                .padding(bottom = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            PremiumTopBar(
+                title = "AL-MANAQIB",
+                onBack = onBackClick
             )
-        )
 
-        // Tampilan list daftar doa dengan LazyColumn
-        if (filteredDoa.isNotEmpty()) {
-            LazyColumn(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                items(filteredDoa) { doa ->
-                    DoaItemCard(doa = doa, onCopyClick = {
-                        copyDoaToClipboard(context, doa)
-                    })
-                }
-            }
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
+                // Section Title (Gold, Uppercase, Spaced)
                 Text(
-                    text = "Doa yang Anda cari tidak ditemukan.",
-                    fontSize = 14.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
+                    text = "KUMPULAN DOA PILIHAN",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = GoldDim,
+                    letterSpacing = 1.5.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = 16.dp)
                 )
+
+                // Kolom Pencarian
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Cari doa harian...", color = TextSecondary.copy(alpha = 0.5f), fontSize = 14.sp) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Cari",
+                            tint = GoldPrimary
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary,
+                        focusedBorderColor = GoldPrimary,
+                        unfocusedBorderColor = DividerLine,
+                        focusedContainerColor = CardSurface,
+                        unfocusedContainerColor = CardSurface
+                    )
+                )
+
+                // List Doa
+                if (filteredDoa.isNotEmpty()) {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(filteredDoa) { doa ->
+                            DoaItemCard(doa = doa, onCopyClick = {
+                                copyDoaToClipboard(context, doa)
+                            })
+                        }
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Doa yang Anda cari tidak ditemukan.",
+                            fontSize = 14.sp,
+                            color = TextSecondary,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
             }
         }
     }
@@ -197,18 +161,17 @@ fun DoaItemCard(
         modifier = Modifier
             .fillMaxWidth()
             .border(
-                width = 1.dp,
-                color = Color.White.copy(alpha = 0.15f), // Frosted glass borderline
+                BorderStroke(1.dp, DividerLine),
                 shape = RoundedCornerShape(16.dp)
             ),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.08f)), // Exquisite glass
+        colors = CardDefaults.cardColors(containerColor = CardSurface),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            // Header: Judul Doa + Tombol Salin
+            // Header: Judul Doa + Salin
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -218,13 +181,13 @@ fun DoaItemCard(
                     Box(
                         modifier = Modifier
                             .size(32.dp)
-                            .background(Color.White.copy(alpha = 0.12f), CircleShape),
+                            .background(GoldGlow, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.MenuBook,
                             contentDescription = "Buku Doa",
-                            tint = MaterialTheme.colorScheme.primary, // Gold
+                            tint = GoldPrimary,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -233,7 +196,7 @@ fun DoaItemCard(
                         text = doa.title,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White // Polished white heading
+                        color = GoldPrimary
                     )
                 }
 
@@ -244,7 +207,7 @@ fun DoaItemCard(
                     Icon(
                         imageVector = Icons.Default.ContentCopy,
                         contentDescription = "Salin Teks Doa",
-                        tint = MaterialTheme.colorScheme.primary, // Gold Icon
+                        tint = GoldPrimary,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -252,16 +215,16 @@ fun DoaItemCard(
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // Teks Arab Tradisional (Format Kanan-ke-Kiri / RTL) -> Gold Glow
+            // Teks Arab Tradisional
             Text(
                 text = doa.arabic,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Normal,
-                fontFamily = FontFamily.Serif, // Memakai serif bawaan system agar font Arab terlihat proporsional luhur
+                fontFamily = FontFamily.Serif,
                 lineHeight = 40.sp,
                 textAlign = TextAlign.End,
                 modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.primary // Gold Accent
+                color = GoldPrimary
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -271,18 +234,18 @@ fun DoaItemCard(
                 text = doa.latin,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.secondary, // Bright Gold
+                color = GoldLight,
                 lineHeight = 18.sp,
                 modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Arti Terjemahan Bahasa Indonesia
+            // Arti Terjemahan
             Text(
                 text = "Artinya: \"${doa.translation}\"",
                 fontSize = 12.sp,
-                color = Color(0xFFB2DFDB), // Soft light teal text
+                color = TextSecondary,
                 lineHeight = 16.sp,
                 modifier = Modifier.fillMaxWidth()
             )

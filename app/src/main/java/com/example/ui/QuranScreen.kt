@@ -2,9 +2,7 @@ package id.ideahousetech.prayertime_qibla.ui
 
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,6 +22,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -31,10 +30,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import id.ideahousetech.prayertime_qibla.ui.components.PremiumTopBar
+import id.ideahousetech.prayertime_qibla.ui.theme.*
 
-/**
- * Model data representasi surah Al-Qur'an.
- */
 data class QuranSurah(
     val number: Int,
     val name: String,
@@ -45,9 +43,6 @@ data class QuranSurah(
     val description: String = ""
 )
 
-/**
- * Model data ayat Al-Qur'an.
- */
 data class QuranVerse(
     val verseNumber: Int,
     val arabic: String,
@@ -64,13 +59,11 @@ fun QuranScreen(
     var searchQuery by remember { mutableStateOf("") }
     var selectedSurah by remember { mutableStateOf<QuranSurah?>(null) }
     
-    // Bookmark preferences
     val sharedPrefs = remember { context.getSharedPreferences("quran_bookmarks", Context.MODE_PRIVATE) }
     var bookmarkedSurahNumber by remember { mutableStateOf(sharedPrefs.getInt("bookmarked_surah", -1)) }
 
     val surahList = remember { getFullSurahList() }
 
-    // Filter surah list berdasarkan kueri pencarian
     val filteredSurah = remember(searchQuery) {
         if (searchQuery.trim().isEmpty()) {
             surahList
@@ -86,32 +79,36 @@ fun QuranScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .background(Brush.verticalGradient(listOf(DeepNight, MidnightLayer)))
     ) {
         if (selectedSurah == null) {
             // VIEW LIST SURAH
             Column(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Baris Aksi Atas
+                // Toolbar
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     IconButton(
                         onClick = onBackClick,
                         modifier = Modifier
-                            .size(40.dp)
-                            .background(Color.White.copy(alpha = 0.08f), CircleShape)
-                            .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape)
+                            .size(36.dp)
+                            .background(CardSurface, CircleShape)
+                            .border(1.dp, DividerLine, CircleShape)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Kembali ke Menu Utama",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
+                            contentDescription = "Kembali ke Beranda",
+                            tint = GoldPrimary,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
@@ -121,8 +118,8 @@ fun QuranScreen(
                             Row(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0xFFD4AF37).copy(alpha = 0.15f))
-                                    .border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.3f), RoundedCornerShape(12.dp))
+                                    .background(GoldGlow)
+                                    .border(1.dp, GoldPrimary, RoundedCornerShape(12.dp))
                                     .clickable { selectedSurah = bsurah }
                                     .padding(horizontal = 10.dp, vertical = 6.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -130,7 +127,7 @@ fun QuranScreen(
                                 Icon(
                                     imageVector = Icons.Default.Bookmark,
                                     contentDescription = "Bookmark",
-                                    tint = Color(0xFFD4AF37),
+                                    tint = GoldPrimary,
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
@@ -138,88 +135,86 @@ fun QuranScreen(
                                     text = "Terakhir Baca: ${bsurah.name}",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color(0xFFD4AF37)
+                                    color = GoldPrimary
                                 )
                             }
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Header Judul
-                Text(
-                    text = "AL-QUR'ANUL KARIM",
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFFB2DFDB),
-                    letterSpacing = 2.sp
-                )
-                Text(
-                    text = "Mushaf Al-Qur'an",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.primary, // Gold
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Kolom Pencarian
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text("Cari nama surah atau nomor...", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp) },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Cari",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                    },
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.15f),
-                        focusedContainerColor = Color.White.copy(alpha = 0.08f),
-                        unfocusedContainerColor = Color.White.copy(alpha = 0.08f)
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Header Judul
+                    Text(
+                        text = "AL-QUR'ANUL KARIM",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = GoldDim,
+                        letterSpacing = 1.5.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(bottom = 16.dp)
                     )
-                )
 
-                // List Surah
-                if (filteredSurah.isNotEmpty()) {
-                    LazyColumn(
+                    // Kolom Pencarian
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = { Text("Cari nama surah atau nomor...", color = TextSecondary.copy(alpha = 0.5f), fontSize = 14.sp) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = "Cari",
+                                tint = GoldPrimary
+                            )
+                        },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        items(filteredSurah) { surah ->
-                            SurahListItemCard(
-                                surah = surah,
-                                isBookmarked = (surah.number == bookmarkedSurahNumber),
-                                onClick = { selectedSurah = surah }
+                            .padding(bottom = 16.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary,
+                            focusedBorderColor = GoldPrimary,
+                            unfocusedBorderColor = DividerLine,
+                            focusedContainerColor = CardSurface,
+                            unfocusedContainerColor = CardSurface
+                        )
+                    )
+
+                    // List Surah
+                    if (filteredSurah.isNotEmpty()) {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(filteredSurah) { surah ->
+                                SurahListItemCard(
+                                    surah = surah,
+                                    isBookmarked = (surah.number == bookmarkedSurahNumber),
+                                    onClick = { selectedSurah = surah }
+                                )
+                            }
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Surah tidak ditemukan.",
+                                color = TextSecondary,
+                                fontSize = 14.sp
                             )
                         }
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Surah tidak ditemukan.",
-                            color = Color.White.copy(alpha = 0.5f),
-                            fontSize = 14.sp
-                        )
                     }
                 }
             }
@@ -247,26 +242,31 @@ fun QuranScreen(
             }
 
             Column(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 // Toolbar Detail
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
                         onClick = { selectedSurah = null },
                         modifier = Modifier
-                            .size(40.dp)
-                            .background(Color.White.copy(alpha = 0.08f), CircleShape)
-                            .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape)
+                            .size(36.dp)
+                            .background(CardSurface, CircleShape)
+                            .border(1.dp, DividerLine, CircleShape)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Kembali ke List Surah",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
+                            tint = GoldPrimary,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
@@ -275,13 +275,14 @@ fun QuranScreen(
                         Text(
                             text = activeSurah.name.uppercase(),
                             fontSize = 16.sp,
+                            fontFamily = CinzelFont,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = GoldPrimary
                         )
                         Text(
                             text = "${activeSurah.type} • ${activeSurah.totalVerses} Ayat",
                             fontSize = 11.sp,
-                            color = Color(0xFFB2DFDB)
+                            color = TextSecondary
                         )
                     }
 
@@ -299,124 +300,129 @@ fun QuranScreen(
                             }
                         },
                         modifier = Modifier
-                            .size(40.dp)
-                            .background(Color.White.copy(alpha = 0.08f), CircleShape)
-                            .border(1.dp, Color.White.copy(alpha = 0.15f), CircleShape)
+                            .size(36.dp)
+                            .background(CardSurface, CircleShape)
+                            .border(1.dp, DividerLine, CircleShape)
                     ) {
                         Icon(
                             imageVector = if (isBookmarked) Icons.Default.Bookmark else Icons.Default.BookmarkBorder,
                             contentDescription = "Bookmark",
-                            tint = if (isBookmarked) Color(0xFFD4AF37) else Color.White,
-                            modifier = Modifier.size(20.dp)
+                            tint = GoldPrimary,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Kartu Deskripsi Pengantar Surah (Bismillah)
-                Card(
+                Column(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 12.dp)
-                        .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(16.dp)),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f))
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = activeSurah.arabicName,
-                            fontSize = 28.sp,
-                            fontFamily = FontFamily.Serif,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(bottom = 6.dp)
-                        )
-                        Text(
-                            text = "Artinya: ${activeSurah.meaning}",
-                            fontSize = 12.sp,
-                            color = Color.White.copy(alpha = 0.7f),
-                            textAlign = TextAlign.Center
-                        )
-                        if (activeSurah.number != 9) { // At-Taubah tidak melafadzkan basmalah
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
-                                fontSize = 18.sp,
-                                fontFamily = FontFamily.Serif,
-                                color = Color.White,
-                                textAlign = TextAlign.Center
-                            )
-                            Text(
-                                text = "Dengan menyebut nama Allah Yang Maha Pengasih lagi Maha Penyayang",
-                                fontSize = 11.sp,
-                                color = Color(0xFFB2DFDB),
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.padding(top = 2.dp)
-                            )
-                        }
-                    }
-                }
-
-                if (isLoadingVerses) {
-                    Box(
+                    // Kartu Deskripsi Pengantar Surah (Bismillah)
+                    Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
+                            .padding(bottom = 12.dp)
+                            .border(1.dp, DividerLine, RoundedCornerShape(16.dp)),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = CardSurface)
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = "Mengunduh ayat lengkap...",
-                                color = Color.White.copy(alpha = 0.6f),
-                                fontSize = 14.sp
-                            )
-                        }
-                    }
-                } else {
-                    if (isOfflineMode) {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp, horizontal = 2.dp)
-                                .border(1.dp, Color(0xFFD4AF37).copy(alpha = 0.2f), RoundedCornerShape(12.dp)),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFD4AF37).copy(alpha = 0.05f)),
-                            shape = RoundedCornerShape(12.dp)
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Row(
-                                modifier = Modifier.padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = "Mode Luring",
-                                    tint = Color(0xFFD4AF37),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = activeSurah.arabicName,
+                                fontSize = 28.sp,
+                                fontFamily = FontFamily.Serif,
+                                color = GoldPrimary,
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
+                            Text(
+                                text = "Artinya: ${activeSurah.meaning}",
+                                fontSize = 12.sp,
+                                color = TextSecondary,
+                                textAlign = TextAlign.Center
+                            )
+                            if (activeSurah.number != 9) { // At-Taubah tidak melafadzkan basmalah
+                                Spacer(modifier = Modifier.height(12.dp))
                                 Text(
-                                    text = "Mode Luring. Hubungkan internet untuk memuat seluruh ${activeSurah.totalVerses} ayat.",
+                                    text = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
+                                    fontSize = 18.sp,
+                                    fontFamily = FontFamily.Serif,
+                                    color = TextPrimary,
+                                    textAlign = TextAlign.Center
+                                )
+                                Text(
+                                    text = "Dengan menyebut nama Allah Yang Maha Pengasih lagi Maha Penyayang",
                                     fontSize = 11.sp,
-                                    color = Color.White.copy(alpha = 0.8f)
+                                    color = GoldPrimary,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(top = 2.dp)
                                 )
                             }
                         }
-                        Spacer(modifier = Modifier.height(8.dp))
                     }
 
-                    // List Ayat per Ayat
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        items(versesList) { verse ->
-                            VerseItemCard(verse = verse)
+                    if (isLoadingVerses) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(color = GoldPrimary)
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Mengunduh ayat lengkap...",
+                                    color = TextSecondary,
+                                    fontSize = 14.sp
+                                )
+                            }
+                        }
+                    } else {
+                        if (isOfflineMode) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp, horizontal = 2.dp)
+                                    .border(1.dp, GoldPrimary, RoundedCornerShape(12.dp)),
+                                colors = CardDefaults.cardColors(containerColor = GoldGlow),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = "Mode Luring",
+                                        tint = GoldPrimary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Mode Luring. Hubungkan internet untuk memuat seluruh ${activeSurah.totalVerses} ayat.",
+                                        fontSize = 11.sp,
+                                        color = TextPrimary
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+
+                        // List Ayat per Ayat
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(versesList) { verse ->
+                                VerseItemCard(verse = verse)
+                            }
                         }
                     }
                 }
@@ -431,19 +437,16 @@ fun SurahListItemCard(
     isBookmarked: Boolean,
     onClick: () -> Unit
 ) {
+    val cardBg = if (isBookmarked) GoldGlow else CardSurface
+    val cardBorder = if (isBookmarked) BorderStroke(1.dp, GoldPrimary) else BorderStroke(1.dp, DividerLine)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .border(
-                width = 1.dp,
-                color = if (isBookmarked) Color(0xFFD4AF37).copy(alpha = 0.4f) else Color.White.copy(alpha = 0.12f),
-                shape = RoundedCornerShape(16.dp)
-            )
             .clickable { onClick() },
+        border = cardBorder,
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isBookmarked) Color(0xFFD4AF37).copy(alpha = 0.06f) else Color.White.copy(alpha = 0.06f)
-        )
+        colors = CardDefaults.cardColors(containerColor = cardBg)
     ) {
         Row(
             modifier = Modifier
@@ -460,15 +463,15 @@ fun SurahListItemCard(
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .background(Color.White.copy(alpha = 0.08f), CircleShape)
-                        .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), CircleShape),
+                        .background(GoldGlow, CircleShape)
+                        .border(1.dp, GoldPrimary, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = surah.number.toString(),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = GoldPrimary
                     )
                 }
 
@@ -481,14 +484,14 @@ fun SurahListItemCard(
                             text = surah.name,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = TextPrimary
                         )
                         if (isBookmarked) {
                             Spacer(modifier = Modifier.width(6.dp))
                             Icon(
                                 imageVector = Icons.Default.Bookmark,
                                 contentDescription = "Terakhir Baca",
-                                tint = Color(0xFFD4AF37),
+                                tint = GoldPrimary,
                                 modifier = Modifier.size(12.dp)
                             )
                         }
@@ -496,18 +499,18 @@ fun SurahListItemCard(
                     Text(
                         text = "${surah.meaning} • ${surah.totalVerses} Ayat",
                         fontSize = 11.sp,
-                        color = Color(0xFFB2DFDB)
+                        color = TextSecondary
                     )
                 }
             }
 
-            // Teks Arab Nama Surah di sisi kanan
+            // Teks Arab Nama Surah
             Text(
                 text = surah.arabicName,
                 fontSize = 20.sp,
                 fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary
+                color = GoldPrimary
             )
         }
     }
@@ -520,14 +523,14 @@ fun VerseItemCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(14.dp)),
+            .border(1.dp, DividerLine, RoundedCornerShape(14.dp)),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.04f))
+        colors = CardDefaults.cardColors(containerColor = CardSurface)
     ) {
         Column(
             modifier = Modifier.padding(14.dp)
         ) {
-            // Header: Nomor Ayat di lingkaran emas
+            // Header: Nomor Ayat
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -536,22 +539,22 @@ fun VerseItemCard(
                 Box(
                     modifier = Modifier
                         .size(24.dp)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f), CircleShape)
-                        .border(1.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                        .background(GoldGlow, CircleShape)
+                        .border(1.dp, GoldPrimary, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = verse.verseNumber.toString(),
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = GoldPrimary
                     )
                 }
                 
                 Text(
                     text = "Ayat ${verse.verseNumber}",
                     fontSize = 11.sp,
-                    color = Color.White.copy(alpha = 0.4f)
+                    color = TextSecondary
                 )
             }
 
@@ -565,7 +568,7 @@ fun VerseItemCard(
                 lineHeight = 42.sp,
                 textAlign = TextAlign.End,
                 modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.primary
+                color = GoldPrimary
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -575,18 +578,18 @@ fun VerseItemCard(
                 text = verse.latin,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.secondary,
+                color = GoldLight,
                 lineHeight = 18.sp,
                 modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Terjemahan Kemenag Edisi Revisi 2002
+            // Terjemahan Kemenag
             Text(
                 text = verse.translation,
                 fontSize = 12.sp,
-                color = Color(0xFFB2DFDB),
+                color = TextSecondary,
                 lineHeight = 16.sp,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -594,9 +597,6 @@ fun VerseItemCard(
     }
 }
 
-/**
- * Daftar Meta-data Lengkap 114 Surah Al-Qur'an
- */
 private fun getFullSurahList(): List<QuranSurah> {
     return listOf(
         QuranSurah(1, "Al-Fatihah", "الفاتحة", "Pembukaan", 7, "Makkiyah"),
@@ -627,7 +627,7 @@ private fun getFullSurahList(): List<QuranSurah> {
         QuranSurah(26, "Asy-Syu'ara'", "الشعراء", "Para Penyair", 227, "Makkiyah"),
         QuranSurah(27, "An-Naml", "النمل", "Semut", 93, "Makkiyah"),
         QuranSurah(28, "Al-Qasas", "القصص", "Kisah-Kisah", 88, "Makkiyah"),
-        QuranSurah(29, "Al-'Ankabut", "العنكبوت", "Laba-Laba", 69, "Makkiyah"),
+        QuranSurah(29, "Al-'Ankabut", "العنكبut", "Laba-Laba", 69, "Makkiyah"),
         QuranSurah(30, "Ar-Rum", "الروم", "Bangsa Romawi", 60, "Makkiyah"),
         QuranSurah(31, "Luqman", "لقمان", "Luqman", 34, "Makkiyah"),
         QuranSurah(32, "As-Sajdah", "السجدة", "Sujud", 30, "Makkiyah"),
@@ -661,7 +661,7 @@ private fun getFullSurahList(): List<QuranSurah> {
         QuranSurah(60, "Al-Mumtahanah", "الممتحنة", "Wanita yang Diuji", 13, "Madaniyah"),
         QuranSurah(61, "As-Saff", "الصف", "Barisan", 14, "Madaniyah"),
         QuranSurah(62, "Al-Jumu'ah", "الجمعة", "Hari Jumat", 11, "Madaniyah"),
-        QuranSurah(63, "Al-Munafiqun", "المnaفقون", "Orang-Orang Munafik", 11, "Madaniyah"),
+        QuranSurah(63, "Al-Munafiqun", "المنفقون", "Orang-Orang Munafik", 11, "Madaniyah"),
         QuranSurah(64, "At-Taghabun", "التغابن", "Hari Ditampakkan Kesalahan", 18, "Madaniyah"),
         QuranSurah(65, "At-Talaq", "الطلاق", "Perceraian", 12, "Madaniyah"),
         QuranSurah(66, "At-Tahrim", "التحريم", "Mengharamkan", 12, "Madaniyah"),
@@ -716,10 +716,6 @@ private fun getFullSurahList(): List<QuranSurah> {
     )
 }
 
-/**
- * Mendapatkan representasi daftar ayat lengkap luring (Kemenag Edisi Revisi 2002)
- * dengan Skrip Utsmani asli dan Asian/Indonesian phonetic translit.
- */
 private fun getVersesForSurah(number: Int, surah: QuranSurah): List<QuranVerse> {
     return when (number) {
         1 -> listOf(
@@ -729,7 +725,7 @@ private fun getVersesForSurah(number: Int, surah: QuranSurah): List<QuranVerse> 
             QuranVerse(4, "مَٰلِكِ يَوْمِ ٱلدِّينِ", "Māliki yaumid-dīn.", "Pemilik hari pembalasan."),
             QuranVerse(5, "إِيَّاكَ نَعْبُدُ وَإِيَّاكَ نَسْتَعِينُ", "Iyyāka na‘budu wa iyyāka nasta‘īn.", "Hanya kepada-Mu kami menyembah dan hanya kepada-Mu kami memohon pertolongan."),
             QuranVerse(6, "ٱهْدِنَا ٱلصِّرَٰطَ ٱلْمُسْتَقِيمَ", "Ihdiniṣ-ṣirāṭal-mustaqīm.", "Tunjukkanlah kami jalan yang lurus,"),
-            QuranVerse(7, "صِرَٰطَ ٱلَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ ٱلْمَغْضُوبِ عَلَيْهِمْ وَلَا ٱلضَّآلِّينَ", "Ṣirāṭal-ladzīna an‘amta ‘alaihim, ghairil-maghḍūbi ‘alaihim wa laḍ-ḍāllīn.", "(yaitu) jalan orang-orang yang telah Engkau beri nikmat kepadanya; bukan (jalan) mereka yang dimurkai, dan bukan (pula jalan) mereka yang sesat.")
+            QuranVerse(7, "صِرَٰطَ ٱلَّذِينَ أَنْعَمْتَ عَلَيْهِمْ غَيْرِ ٱلْمَغْضُOBِ عَلَيْهِمْ وَلَا ٱلضَّآلِّينَ", "Ṣirāṭal-ladzīna an‘amta ‘alaihim, ghairil-maghḍūbi ‘alaihim wa laḍ-ḍāllīn.", "(yaitu) jalan orang-orang yang telah Engkau beri nikmat kepadanya; bukan (jalan) mereka yang dimurkai, dan bukan (pula jalan) mereka yang sesat.")
         )
         97 -> listOf(
             QuranVerse(1, "إِنَّآ أَنزَلْنَٰهُ فِي لَيْلَةِ ٱلْقَدْرِ", "Innā anzalnāhu fī lailatil-qadr.", "Sesungguhnya Kami telah menurunkannya (Al-Qur'an) pada malam qadar."),
@@ -747,8 +743,8 @@ private fun getVersesForSurah(number: Int, surah: QuranSurah): List<QuranVerse> 
             QuranVerse(1, "أَلَمْ تَرَ كَيْفَ فَعَلَ رَبُّكَ بِأَصْحَٰبِ ٱلْفِيلِ", "Alam tara kaifa fa‘ala rabbuka bi'aṣ-ḥābil-fīl.", "Tidakkah engkau (Muhammad) perhatikan bagaimana Tuhanmu telah bertindak terhadap pasukan bergajah?"),
             QuranVerse(2, "أَلَمْ يَجْعَلْ كَيْدَهُمْ فِي تَضْلِيلٍ", "Alam yaj‘al kaidahum fī taḍlīl.", "Bukankah Dia telah menjadikan tipu daya mereka itu sia-sia?"),
             QuranVerse(3, "وَأَرْسَلَ عَلَيْهِمْ طَيْرًا أَبَابِيلَ", "Wa arsala ‘alaihim ṭairan abābīl.", "dan Dia mengirimkan kepada mereka burung yang berbondong-bondong,"),
-            QuranVerse(4, "تَرْمِيهِم بِحِجَارَةٍ مِّن سِجِّيلٍ", "Tarmīhim biḥijāratim-min sijjīl.", "yang melempari mereka dengan batu dari tanah liat yang dibakar,"),
-            QuranVerse(5, "فَجَعَلَهُمْ كَعَصْفٍ مَّأْكُولٍ", "Faja‘alahum ka‘aṣfim-ma'kūl.", "sehingga mereka dijadikan-Nya seperti daun-daun yang dimakan (ulat).")
+            QuranVerse(4, "تَرْمِيهِم بِحِجَارَةٍ mِّن سِجِّيلٍ", "Tarmīhim biḥijāratim-min sijjīl.", "yang melempari mereka dengan batu dari tanah liat yang dibakar,"),
+            QuranVerse(5, "Fَجَعَلَهُمْ كَعَصْفٍ مَّأْكُولٍ", "Faja‘alahum ka‘aṣfim-ma'kūl.", "sehingga mereka dijadikan-Nya seperti daun-daun yang dimakan (ulat).")
         )
         108 -> listOf(
             QuranVerse(1, "إِنَّآ أَعْطَيْنَٰكَ ٱلْكَوْثَرَ", "Innā a‘ṭainākal-kautsar.", "Sungguh, Kami telah memberimu (Muhammad) nikmat yang banyak."),
@@ -757,7 +753,7 @@ private fun getVersesForSurah(number: Int, surah: QuranSurah): List<QuranVerse> 
         )
         110 -> listOf(
             QuranVerse(1, "إِذَا جَآءَ نَصْرُ ٱللَّهِ وَٱلْفَتْحُ", "Idzā jā'a naṣrullāhi wal-fatḥ.", "Apabila telah datang pertolongan Allah dan kemenangan,"),
-            QuranVerse(2, "وَرَأَيْتَ ٱلنَّاسَ يَدْخُلُونَ فِي دِينِ ٱللَّهِ أَفْوَاجًا", "Wa ra'aitan-nāsa yadkhulūna fī dīnillāhi afwājā.", "dan engkau melihat manusia berbondong-bondong masuk agama Allah,"),
+            QuranVerse(2, "وَوَأَرأَيْتَ ٱلنَّاسَ يَدْخُلُونَ فِي دِينِ ٱللَّهِ أَفْوَاجًا", "Wa ra'aitan-nāsa yadkhulūna fī dīnillāhi afwājā.", "dan engkau melihat manusia berbondong-bondong masuk agama Allah,"),
             QuranVerse(3, "فَسَبِّحْ بِحَمْدِ رَبِّكَ وَٱسْتَغْفِرْهُ ۚ إِنَّهُۥ كَانَ تَوَّابًا", "Fasabbiḥ biḥamdi rabbika wastaghfirh, innahū kāna tawwābā.", "maka bertasbihlah dengan memuji Tuhanmu dan mohonlah ampunan kepada-Nya. Sungguh, Dia Maha Penerima tobat.")
         )
         112 -> listOf(
@@ -788,7 +784,7 @@ private fun getVersesForSurah(number: Int, surah: QuranSurah): List<QuranVerse> 
                 when (vNum) {
                     1 -> QuranVerse(
                         vNum,
-                        "ٱلْحَمْدُ لِلَّهِ ٱلَّذِي أَنزَلَ هَٰذَا ٱلْكِتَٰبَ لِلۡعَٰلَمِينَ",
+                        "ٱلْحَمْدُ لِلَّهِ ٱلَّذِي أَنzَلَ هَٰذَا ٱلْكِتَٰبَ لِلۡعَٰلَمِينَ",
                         "Al-ḥamdu lillāhil-ladzī anzala hādzal-kitāba lil-‘ālamīn.",
                         "Segala puji bagi Allah yang telah menurunkan Kitab Suci ini (Al-Qur'an) sebagai petunjuk bagi seluruh alam."
                     )
