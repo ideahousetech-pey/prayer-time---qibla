@@ -33,20 +33,22 @@ class LocationService(private val context: Context) {
                 null
             ).addOnCompleteListener { task ->
                 if (task.isSuccessful && task.result != null) {
-                    continuation.resume(task.result)
+                    if (continuation.isActive) continuation.resume(task.result)
                 } else {
                     fusedLocationClient.lastLocation.addOnCompleteListener { lastTask ->
-                        if (lastTask.isSuccessful && lastTask.result != null) {
-                            continuation.resume(lastTask.result)
-                        } else {
-                            continuation.resume(null)
+                        if (continuation.isActive) {
+                            if (lastTask.isSuccessful && lastTask.result != null) {
+                                continuation.resume(lastTask.result)
+                            } else {
+                                continuation.resume(null)
+                            }
                         }
                     }
                 }
             }
         } catch (e: Exception) {
             Log.e("LocationService", "Gagal mengambil lokasi GPS: ${e.message}")
-            continuation.resume(null)
+            if (continuation.isActive) continuation.resume(null)
         }
     }
 
@@ -63,10 +65,10 @@ class LocationService(private val context: Context) {
                 val addresses = suspendCancellableCoroutine<List<android.location.Address>> { continuation ->
                     try {
                         geocoder.getFromLocation(latitude, longitude, 1) { addresses ->
-                            continuation.resume(addresses)
+                            if (continuation.isActive) continuation.resume(addresses)
                         }
                     } catch (e: Exception) {
-                        continuation.resume(emptyList())
+                        if (continuation.isActive) continuation.resume(emptyList())
                     }
                 }
                 if (addresses.isNotEmpty()) {

@@ -1,8 +1,13 @@
 package id.ideahousetech.prayertime_qibla.ui
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Divider
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -108,6 +113,77 @@ import id.ideahousetech.prayertime_qibla.ui.theme.*
  * kartu informasi waktu sholat berikutnya lengkap dng ticking countdown mundur,
  * dan carousel horizontal jadwal sholat harian 5 waktu.
  */
+fun calculatePrayerProgress(
+    todaySchedule: id.ideahousetech.prayertime_qibla.model.PrayerTime?,
+    nextPrayerName: String
+): Float {
+    if (todaySchedule == null) return 0.5f
+    try {
+        val now = java.util.Calendar.getInstance()
+        val nowMillis = now.timeInMillis
+        
+        fun parseTime(timeStr: String, isTomorrow: Boolean = false): java.util.Calendar {
+            val parts = timeStr.split(":")
+            if (parts.size < 2) return java.util.Calendar.getInstance()
+            val hour = parts[0].toIntOrNull() ?: 0
+            val min = parts[1].toIntOrNull() ?: 0
+            val cal = java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, hour)
+                set(java.util.Calendar.MINUTE, min)
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }
+            if (isTomorrow) {
+                cal.add(java.util.Calendar.DAY_OF_YEAR, 1)
+            }
+            return cal
+        }
+
+        val subuhToday = parseTime(todaySchedule.fajr)
+        val dzuhurToday = parseTime(todaySchedule.dhuhr)
+        val asharToday = parseTime(todaySchedule.asr)
+        val maghribToday = parseTime(todaySchedule.maghrib)
+        val isyaToday = parseTime(todaySchedule.isha)
+        val subuhTomorrow = parseTime(todaySchedule.fajr, isTomorrow = true)
+
+        val pairs = listOf(
+            "SUBUH" to (parseTime(todaySchedule.isha).apply { add(java.util.Calendar.DAY_OF_YEAR, -1) } to subuhToday),
+            "DZUHUR" to (subuhToday to dzuhurToday),
+            "ASHAR" to (dzuhurToday to asharToday),
+            "MAGHRIB" to (asharToday to maghribToday),
+            "ISYA" to (maghribToday to isyaToday),
+            "SUBUH (ESOK)" to (isyaToday to subuhTomorrow)
+        )
+
+        val normalizedNextName = nextPrayerName.uppercase()
+        val matchKey = if (normalizedNextName.contains("BESOK") || normalizedNextName.contains("ESOK")) {
+            "SUBUH (ESOK)"
+        } else if (normalizedNextName.contains("SUBUH") || normalizedNextName.contains("FAJR")) {
+            "SUBUH"
+        } else if (normalizedNextName.contains("DZUHUR") || normalizedNextName.contains("DHUHR")) {
+            "DZUHUR"
+        } else if (normalizedNextName.contains("ASHAR") || normalizedNextName.contains("ASR")) {
+            "ASHAR"
+        } else if (normalizedNextName.contains("MAGHRIB")) {
+            "MAGHRIB"
+        } else if (normalizedNextName.contains("ISYA") || normalizedNextName.contains("ISHA")) {
+            "ISYA"
+        } else {
+            ""
+        }
+
+        val matchingPair = pairs.find { it.first == matchKey }?.second ?: (subuhToday to dzuhurToday)
+        val prevMillis = matchingPair.first.timeInMillis
+        val nextMillis = matchingPair.second.timeInMillis
+
+        if (nextMillis <= prevMillis) return 0.5f
+        val fraction = (nowMillis - prevMillis).toFloat() / (nextMillis - prevMillis).toFloat()
+        return fraction.coerceIn(0f, 1f)
+    } catch (e: Exception) {
+        return 0.5f
+    }
+}
+
 @Composable
 fun HomeScreen(
     prayerViewModel: PrayerViewModel,
@@ -125,7 +201,6 @@ fun HomeScreen(
     val nextPrayerName by prayerViewModel.nextPrayerName.collectAsState()
     val currentHolidayPopUp by prayerViewModel.currentHolidayPopUp.collectAsState()
 
-    // Memicu loading pertama kali lokasi dan jadwal sholat jika belum dimuat
     val userLocation by locationViewModel.userLocation.collectAsState()
     val isLoadingLoc by locationViewModel.isLoading.collectAsState()
 
@@ -134,60 +209,95 @@ fun HomeScreen(
     var showSettingsDialog by remember { mutableStateOf(false) }
     var enableDailyReminder by remember { mutableStateOf(adzanPrefs.getBoolean("enable_daily_reminder", true)) }
 
-    // Root Box is transparent to reveal the majestic repeating Islamic pattern below
+    // Animasi fade-in saat pertama tampil
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+
     Box(
-        modifier = modifier.fillMaxSize()
+        modifier = modifier
+            .fillMaxSize()
+            .background(
+                Brush.verticalGradient(listOf(DeepNight, MidnightLayer))
+            )
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 80.dp) // Berikan jarak aman bagi Bottom Navigation
-        ) {
-            // 1. Header Area: Dilengkapi tombol gir pengaturan di pojok kanan atas
-            HeaderSection(
-                gregorianDate = todayGregorian,
-                hijriDate = todayHijri,
-                onSettingsClick = { showSettingsDialog = true }
-            )
-
-            // 2. Location Area: Realtime name with GPS Refresh Button
-            LocationSection(
-                locationName = locationName,
-                isLoading = isLoadingLoc,
-                onRefreshClick = {
-                    locationViewModel.refreshLocation()
-                    userLocation?.let {
-                        prayerViewModel.loadPrayerTimesForLocation(it.latitude, it.longitude)
-                    }
+        // Ornamen geometri Islam di latar belakang (sangat subtle)
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val step = 80.dp.toPx()
+            var y = 0f
+            while (y < size.height) {
+                var x = 0f
+                while (x < size.width) {
+                    drawCircle(
+                        color  = Color(0x06D4AF37),
+                        radius = 30f,
+                        center = Offset(x, y),
+                        style  = Stroke(width = 0.5f)
+                    )
+                    x += step
                 }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 3. Main Board: Next Prayer Card with ticking live countdown in HH:mm:ss
-            NextPrayerCard(
-                todaySchedule = todaySchedule,
-                nextPrayerName = nextPrayerName,
-                countdownStr = countdown
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 4. Circular Button Menu Grid 3x3
-            GridMenuSection(
-                onNavigateToScreen = onNavigateToScreen
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            if (enableDailyReminder) {
-                // 5. Quick Daily Reminder Note Card
-                ReminderNoteCard()
+                y += step
             }
         }
 
-        // 7. PopUp Dialog Hari Besar Islam
+        AnimatedVisibility(
+            visible = visible,
+            enter   = fadeIn(tween(700)) + slideInVertically(tween(700)) { it / 10 }
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 100.dp)
+            ) {
+                Spacer(Modifier.height(52.dp))
+
+                // 1. Header
+                HomeHeader(
+                    gregorianDate = todayGregorian,
+                    hijriDate     = todayHijri,
+                    locationName  = locationName,
+                    isLoading     = isLoadingLoc,
+                    onRefresh     = {
+                        locationViewModel.refreshLocation()
+                        userLocation?.let {
+                            prayerViewModel.loadPrayerTimesForLocation(it.latitude, it.longitude)
+                        }
+                    },
+                    onSettingsClick = { showSettingsDialog = true }
+                )
+
+                Spacer(Modifier.height(20.dp))
+
+                // 2. Hero Card sholat berikutnya
+                NextPrayerHeroCard(
+                    nextPrayerName = nextPrayerName,
+                    countdown      = countdown,
+                    todaySchedule  = todaySchedule
+                )
+
+                Spacer(Modifier.height(20.dp))
+
+                // 3. 5 waktu sholat hari ini
+                TodayPrayerTimesRow(
+                    todaySchedule  = todaySchedule,
+                    nextPrayerName = nextPrayerName
+                )
+
+                Spacer(Modifier.height(28.dp))
+
+                // 4. Grid menu
+                GridMenuSection(onNavigateToScreen = onNavigateToScreen)
+
+                if (enableDailyReminder) {
+                    Spacer(Modifier.height(16.dp))
+                    ReminderNoteCard()
+                }
+
+                Spacer(Modifier.height(16.dp))
+            }
+        }
+
+        // PopUp Dialog Hari Besar Islam
         if (currentHolidayPopUp != null) {
             HolidayDialog(
                 holiday = currentHolidayPopUp!!,
@@ -195,7 +305,7 @@ fun HomeScreen(
             )
         }
 
-        // 8. Dialog Pengaturan Aplikasi kustom
+        // Dialog Pengaturan Aplikasi kustom
         if (showSettingsDialog) {
             SettingsDialog(
                 locationViewModel = locationViewModel,
@@ -213,358 +323,328 @@ fun HomeScreen(
     }
 }
 
+
+
+
+
 @Composable
-fun HeaderSection(
-    gregorianDate: String,
-    hijriDate: String,
-    onSettingsClick: () -> Unit
+fun HomeHeader(
+    gregorianDate : String,
+    hijriDate     : String,
+    locationName  : String,
+    isLoading     : Boolean,
+    onRefresh     : () -> Unit,
+    onSettingsClick : () -> Unit
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 24.dp, start = 16.dp, end = 16.dp, bottom = 8.dp),
+        modifier              = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment     = Alignment.Top
     ) {
         Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Outlined.LocationOn,
+                    contentDescription = null,
+                    tint = TealAccent,
+                    modifier = Modifier.size(13.dp)
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    text       = locationName.ifEmpty { "Mencari lokasi..." },
+                    fontSize   = 12.sp,
+                    fontFamily = NunitoFont,
+                    color      = TextSecondary,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (isLoading) {
+                    Spacer(Modifier.width(6.dp))
+                    androidx.compose.material3.CircularProgressIndicator(
+                        modifier = Modifier.size(10.dp),
+                        color = TealAccent,
+                        strokeWidth = 1.5.dp
+                    )
+                }
+            }
+            Spacer(Modifier.height(6.dp))
             Text(
-                text = gregorianDate,
-                fontSize = 14.sp,
-                fontFamily = NunitoFont,
-                fontWeight = FontWeight.Light,
-                color = TextSecondary
-            )
-            Text(
-                text = hijriDate,
-                fontSize = 22.sp,
+                text       = hijriDate,
+                fontSize   = 20.sp,
                 fontFamily = CinzelFont,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp,
-                color = GoldPrimary,
-                modifier = Modifier.padding(top = 2.dp)
+                color      = GoldPrimary,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text       = gregorianDate,
+                fontSize   = 12.sp,
+                fontFamily = NunitoFont,
+                color      = TextMuted
             )
         }
 
-        IconButton(
-            onClick = onSettingsClick,
-            modifier = Modifier
-                .size(40.dp)
-                .background(CardSurface, CircleShape)
-                .border(1.dp, DividerLine, CircleShape)
-                .testTag("settings_button")
-        ) {
-            Icon(
-                imageVector = Icons.Default.Settings,
-                contentDescription = "Pengaturan",
-                tint = GoldPrimary,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-    }
-}
-
-@Composable
-fun LocationSection(
-    locationName: String,
-    isLoading: Boolean,
-    onRefreshClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.weight(1f)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.LocationOn,
-                contentDescription = "Lokasi",
-                tint = TealAccent,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = locationName.ifEmpty { "Mencari Lokasi GPS..." },
-                fontSize = 14.sp,
-                fontFamily = NunitoFont,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary
-            )
-        }
-
-        IconButton(
-            onClick = onRefreshClick,
-            modifier = Modifier.size(32.dp)
-        ) {
-            if (isLoading) {
-                androidx.compose.material3.CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    color = GoldPrimary,
-                    strokeWidth = 2.dp
-                )
-            } else {
+            // Tombol refresh GPS
+            IconButton(
+                onClick  = onRefresh,
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(CardElevated, CircleShape)
+                    .border(1.dp, Brush.linearGradient(listOf(GoldDim, Color.Transparent)), CircleShape)
+            ) {
                 Icon(
-                    imageVector = Icons.Default.MyLocation,
-                    contentDescription = "Perbarui Lokasi",
+                    imageVector = Icons.Outlined.Refresh,
+                    contentDescription = "Refresh",
                     tint = GoldPrimary,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            // Tombol Settings
+            IconButton(
+                onClick  = onSettingsClick,
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(CardElevated, CircleShape)
+                    .border(1.dp, Brush.linearGradient(listOf(GoldDim, Color.Transparent)), CircleShape)
+                    .testTag("settings_button")
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Settings,
+                    contentDescription = "Settings",
+                    tint = GoldPrimary,
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }
     }
 }
 
-data class NextPrayerPageData(
-    val name: String,
-    val time: String,
-    val labelText: String,
-    val arabicName: String
-)
-
 @Composable
-fun NextPrayerCard(
-    todaySchedule: id.ideahousetech.prayertime_qibla.model.PrayerTime?,
-    nextPrayerName: String,
-    countdownStr: String
+fun NextPrayerHeroCard(
+    nextPrayerName : String,
+    countdown      : String,
+    todaySchedule  : id.ideahousetech.prayertime_qibla.model.PrayerTime?
 ) {
-    val context = LocalContext.current
-    val adzanPrefs = remember { SecurePrefs.get(context) }
-    var isAlarmEnabled by remember { mutableStateOf(adzanPrefs.getBoolean("enable_adzan_alarm", true)) }
-
-    if (todaySchedule == null) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .border(
-                    width = 1.dp,
-                    color = Color.White.copy(alpha = 0.18f),
-                    shape = RoundedCornerShape(24.dp)
-                ),
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.08f))
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Memuat jadwal sholat...",
-                    color = Color.White.copy(alpha = 0.6f),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-        return
+    val nextTime = when (nextPrayerName.uppercase()) {
+        "SUBUH"   -> todaySchedule?.fajr    ?: "--:--"
+        "DZUHUR"  -> todaySchedule?.dhuhr   ?: "--:--"
+        "ASHAR"   -> todaySchedule?.asr     ?: "--:--"
+        "MAGHRIB" -> todaySchedule?.maghrib ?: "--:--"
+        "ISYA"    -> todaySchedule?.isha    ?: "--:--"
+        else      -> "--:--"
     }
 
-    val prayers = listOf(
-        NextPrayerPageData("Subuh", todaySchedule.fajr, "SUBUH", "الفجر"),
-        NextPrayerPageData("Dzuhur", todaySchedule.dhuhr, "DZUHUR", "الظهر"),
-        NextPrayerPageData("Ashar", todaySchedule.asr, "ASHAR", "العصر"),
-        NextPrayerPageData("Maghrib", todaySchedule.maghrib, "MAGHRIB", "المغرب"),
-        NextPrayerPageData("Isya", todaySchedule.isha, "ISYA", "العشاء")
+    val arabicName = when (nextPrayerName.uppercase()) {
+        "SUBUH"   -> "الفجر"
+        "DZUHUR"  -> "الظهر"
+        "ASHAR"   -> "العصر"
+        "MAGHRIB" -> "المغرب"
+        "ISYA"    -> "العشاء"
+        else      -> ""
+    }
+
+    // Efek glow berdenyut
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue  = 0.25f,
+        targetValue   = 0.55f,
+        animationSpec = infiniteRepeatable(tween(2200, easing = EaseInOutSine), RepeatMode.Reverse),
+        label         = "glow"
     )
 
-    // Calculate focused active next index
-    val activeIndex = remember(nextPrayerName) {
-        when {
-            nextPrayerName.contains("Subuh", ignoreCase = true) -> 0
-            nextPrayerName.contains("Dzuhur", ignoreCase = true) -> 1
-            nextPrayerName.contains("Ashar", ignoreCase = true) -> 2
-            nextPrayerName.contains("Maghrib", ignoreCase = true) -> 3
-            nextPrayerName.contains("Isya", ignoreCase = true) -> 4
-            else -> 0
-        }
-    }
+    val progressVal = calculatePrayerProgress(todaySchedule, nextPrayerName)
+    val progressPct = (progressVal * 100).toInt()
 
-    val pagerState = rememberPagerState(
-        initialPage = activeIndex,
-        pageCount = { prayers.size }
-    )
-
-    // Auto-scroll pager to active prayer index when activeIndex changes
-    LaunchedEffect(activeIndex) {
-        if (activeIndex in prayers.indices) {
-            pagerState.animateScrollToPage(activeIndex)
-        }
-    }
-
-    Card(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 20.dp)
+            .background(
+                Brush.linearGradient(listOf(CardSurface, CardElevated)),
+                RoundedCornerShape(28.dp)
+            )
             .border(
-                width = 1.dp,
-                color = GoldPrimary.copy(alpha = 0.25f),
-                shape = RoundedCornerShape(24.dp)
-            ),
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = CardSurface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                1.dp,
+                Brush.linearGradient(listOf(GoldPrimary.copy(0.5f), Color.Transparent, GoldDim.copy(0.3f))),
+                RoundedCornerShape(28.dp)
+            )
     ) {
+        // Glow lingkaran di belakang jam
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
+            Modifier
+                .size(220.dp)
+                .align(Alignment.Center)
                 .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            CardSurface,
-                            MidnightLayer
-                        )
-                    )
+                    Brush.radialGradient(listOf(GoldGlow.copy(alpha = glowAlpha), Color.Transparent)),
+                    CircleShape
                 )
-                .padding(vertical = 24.dp, horizontal = 16.dp)
+        )
+
+        Column(
+            modifier            = Modifier.fillMaxWidth().padding(vertical = 28.dp, horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                HorizontalPager(
-                    state = pagerState,
-                    modifier = Modifier.fillMaxWidth()
-                ) { page ->
-                    val prayer = prayers[page]
-                    val isCurrent = (page == activeIndex)
+            Text(
+                text = "SHOLAT BERIKUTNYA",
+                fontSize = 10.sp,
+                fontFamily = NunitoFont,
+                color = TextMuted,
+                letterSpacing = 2.sp,
+                fontWeight = FontWeight.Bold
+            )
 
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        // 1. Teks SHOLAT BERIKUTNYA / SUDAH LEWAT / MENDATANG status (Centered)
-                        val statusLabel = when {
-                            page == activeIndex -> "SHOLAT BERIKUTNYA"
-                            page < activeIndex -> "SUDAH LEWAT"
-                            else -> "MENDATANG"
-                        }
+            Spacer(Modifier.height(14.dp))
 
-                        Box(
-                            modifier = Modifier
-                                .background(
-                                    color = if (isCurrent) GoldPrimary.copy(alpha = 0.15f) else CardElevated,
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                                .border(
-                                    width = 1.dp,
-                                    color = if (isCurrent) GoldPrimary.copy(alpha = 0.3f) else DividerLine,
-                                    shape = RoundedCornerShape(12.dp)
-                                )
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = statusLabel,
-                                fontSize = 11.sp,
-                                fontFamily = NunitoFont,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 1.sp,
-                                color = if (isCurrent) GoldLight else TextSecondary
-                            )
-                        }
+            Text(
+                text = arabicName,
+                fontSize = 26.sp,
+                fontFamily = CinzelFont,
+                color = GoldLight,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = nextPrayerName.uppercase(),
+                fontSize = 18.sp,
+                fontFamily = CinzelFont,
+                color     = GoldPrimary,
+                textAlign = TextAlign.Center
+            )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(Modifier.height(16.dp))
 
-                        // 2. Nama Sholat (Centered)
-                        Text(
-                            text = "${prayer.labelText} (${prayer.arabicName})",
-                            fontSize = 24.sp,
-                            fontFamily = CinzelFont,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary,
-                            textAlign = TextAlign.Center
-                        )
+            // Jam besar dengan font Cinzel
+            Text(
+                text      = nextTime,
+                fontSize = 58.sp,
+                fontFamily = CinzelFont,
+                fontWeight = FontWeight.Bold,
+                color     = TextPrimary,
+                textAlign = TextAlign.Center
+            )
 
-                        Spacer(modifier = Modifier.height(6.dp))
+            Spacer(Modifier.height(14.dp))
 
-                        // 3. Jam Sholat (Centered)
-                        Text(
-                            text = prayer.time,
-                            fontSize = 62.sp,
-                            fontFamily = CinzelFont,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = (-1).sp,
-                            color = GoldPrimary,
-                            textAlign = TextAlign.Center
-                        )
+            // Progress bar waktu antara sholat sebelumnya dan berikutnya
+            LinearProgressIndicator(
+                progress     = { progressVal },
+                modifier     = Modifier.fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)),
+                color        = GoldPrimary,
+                trackColor   = DividerLine,
+            )
+            Spacer(Modifier.height(4.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    text = "Menuju $nextPrayerName",
+                    fontSize = 10.sp,
+                    fontFamily = NunitoFont,
+                    color = TextMuted
+                )
+                Text(
+                    text = "$progressPct% berlalu",
+                    fontSize = 10.sp,
+                    fontFamily = NunitoFont,
+                    color = TextSecondary
+                )
+            }
 
-                        Spacer(modifier = Modifier.height(10.dp))
+            Spacer(Modifier.height(16.dp))
 
-                        // 4. Countdown / Status info row (Centered)
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            if (isCurrent) {
-                                Text(
-                                    text = "HITUNG MUNDUR",
-                                    fontSize = 11.sp,
-                                    fontFamily = NunitoFont,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextSecondary,
-                                    letterSpacing = 0.5.sp
-                                )
-                                Spacer(modifier = Modifier.height(4.dp))
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Alarm,
-                                        contentDescription = "Timer",
-                                        tint = TealAccent,
-                                        modifier = Modifier
-                                            .size(18.dp)
-                                            .padding(end = 2.dp)
-                                    )
-                                    Text(
-                                        text = countdownStr,
-                                        fontSize = 24.sp,
-                                        fontFamily = NunitoFont,
-                                        fontWeight = FontWeight.Black,
-                                        color = TealAccent,
-                                        letterSpacing = 0.5.sp
-                                    )
-                                }
-                            } else {
-                                Text(
-                                    text = if (page < activeIndex) "Waktu Sholat Telah Tiba" else "Waktu Sholat Mendatang",
-                                    fontSize = 13.sp,
-                                    fontFamily = NunitoFont,
-                                    fontWeight = FontWeight.Medium,
-                                    color = TextMuted,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
-                    }
+            // Countdown dengan animasi digit flip
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Outlined.Timer,
+                    contentDescription = null,
+                    tint = TealAccent,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                AnimatedContent(
+                    targetState   = countdown,
+                    transitionSpec = {
+                        (slideInVertically { -it } + fadeIn()) togetherWith
+                        (slideOutVertically { it } + fadeOut())
+                    },
+                    label = "countdown"
+                ) { text ->
+                    Text(
+                        text       = text,
+                        fontSize   = 24.sp,
+                        fontWeight = FontWeight.Bold,
+                        color      = GoldPrimary,
+                        fontFamily = CinzelFont
+                    )
                 }
+            }
+        }
+    }
+}
 
-                Spacer(modifier = Modifier.height(20.dp))
+@Composable
+fun TodayPrayerTimesRow(
+    todaySchedule  : id.ideahousetech.prayertime_qibla.model.PrayerTime?,
+    nextPrayerName : String
+) {
+    val prayers = listOf(
+        "Sub" to (todaySchedule?.fajr    ?: "--:--"),
+        "Dzu" to (todaySchedule?.dhuhr   ?: "--:--"),
+        "Asr" to (todaySchedule?.asr     ?: "--:--"),
+        "Mgr" to (todaySchedule?.maghrib ?: "--:--"),
+        "Isy" to (todaySchedule?.isha    ?: "--:--")
+    )
+    val fullNames = listOf("Subuh", "Dzuhur", "Ashar", "Maghrib", "Isya")
 
-                // Beautiful Page Indicators
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    repeat(prayers.size) { i ->
-                        val isIndicatorActive = (pagerState.currentPage == i)
-                        Box(
-                            modifier = Modifier
-                                .size(if (isIndicatorActive) 8.dp else 5.dp)
-                                .background(
-                                    color = if (isIndicatorActive) GoldPrimary else TextMuted,
-                                    shape = CircleShape
-                                )
+    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = "HARI INI",
+                fontSize = 10.sp,
+                fontFamily = NunitoFont,
+                color = TextMuted,
+                letterSpacing = 2.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.width(10.dp))
+            Divider(modifier = Modifier.weight(1f), color = DividerLine)
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            prayers.forEachIndexed { i, (short, time) ->
+                val isNext = fullNames[i].equals(nextPrayerName, ignoreCase = true)
+                Column(
+                    modifier = Modifier
+                        .background(
+                            if (isNext) GoldGlow else CardSurface,
+                            RoundedCornerShape(14.dp)
                         )
-                    }
+                        .border(
+                            if (isNext) 1.dp else 0.5.dp,
+                            if (isNext) GoldPrimary else DividerLine,
+                            RoundedCornerShape(14.dp)
+                        )
+                        .padding(horizontal = 10.dp, vertical = 10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text          = short.uppercase(),
+                        fontSize      = 9.sp,
+                        fontFamily    = NunitoFont,
+                        fontWeight    = FontWeight.Bold,
+                        color         = if (isNext) GoldPrimary else TextSecondary,
+                        letterSpacing = 0.5.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text       = time,
+                        fontSize   = 13.sp,
+                        fontFamily = NunitoFont,
+                        fontWeight = FontWeight.Bold,
+                        color      = if (isNext) GoldLight else TextPrimary
+                    )
                 }
             }
         }
@@ -618,6 +698,8 @@ fun ReminderNoteCard() {
         }
     }
 }
+
+
 
 /**
  * Dialog/Popup Khusus Hari Raya Islam
