@@ -89,7 +89,7 @@ dependencies {
   implementation(libs.androidx.compose.material3)
   implementation(libs.androidx.compose.ui)
   implementation(libs.androidx.compose.ui.graphics)
-  implementation(libs.androidx.compose.ui.text.googlefonts)
+  // implementation(libs.androidx.compose.ui.text.googlefonts)
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.datastore.preferences)
@@ -137,6 +137,18 @@ abstract class DownloadAssetsTask : DefaultTask() {
     @get:OutputDirectory
     abstract val fontDir: DirectoryProperty
 
+    private fun downloadUrlToFile(urlString: String, file: File) {
+        val connection = URL(urlString).openConnection()
+        connection.setRequestProperty("User-Agent", "Mozilla/5.0")
+        connection.connectTimeout = 15000
+        connection.readTimeout = 15000
+        connection.getInputStream().use { input ->
+            file.outputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+    }
+
     @TaskAction
     fun run() {
         val targetAssets = assetsDir.get().asFile
@@ -182,8 +194,38 @@ abstract class DownloadAssetsTask : DefaultTask() {
             }
         }
         
-        // Fonts are now handled via robust native System Font Families (Serif and SansSerif)
-        // to prevent any 503 network-related startup crashes on corrupt font files.
+        // Download and structure font files in app/src/main/res/font
+        val targetFonts = fontDir.get().asFile
+        if (!targetFonts.exists()) {
+            targetFonts.mkdirs()
+        }
+        val fontsList = mapOf(
+            "cinzel_regular.ttf" to "https://fonts.gstatic.com/s/cinzel/v26/8vIU7ww63mVu7gtR-kwKxNvkNOjw-tbnTYo.ttf",
+            "cinzel_bold.ttf" to "https://fonts.gstatic.com/s/cinzel/v26/8vIU7ww63mVu7gtR-kwKxNvkNOjw-jHgTYo.ttf",
+            "nunito_light.ttf" to "https://fonts.gstatic.com/s/nunito/v32/XRXI3I6Li01BKofiOc5wtlZ2di8HDOUhRTM.ttf",
+            "nunito_regular.ttf" to "https://fonts.gstatic.com/s/nunito/v32/XRXI3I6Li01BKofiOc5wtlZ2di8HDLshRTM.ttf",
+            "nunito_semibold.ttf" to "https://fonts.gstatic.com/s/nunito/v32/XRXI3I6Li01BKofiOc5wtlZ2di8HDGUmRTM.ttf",
+            "nunito_bold.ttf" to "https://fonts.gstatic.com/s/nunito/v32/XRXI3I6Li01BKofiOc5wtlZ2di8HDFwmRTM.ttf"
+        )
+        fontsList.forEach { (name, url) ->
+            val fontFile = File(targetFonts, name)
+            if (!fontFile.exists() || fontFile.length() < 100) {
+                try {
+                    println("Downloading font: $name from $url...")
+                    downloadUrlToFile(url, fontFile)
+                    println("Downloaded font: $name success.")
+                } catch (e: Exception) {
+                    val altUrl = url.replace("/static/", "/")
+                    try {
+                        println("Retrying font download: $name from fallback $altUrl...")
+                        downloadUrlToFile(altUrl, fontFile)
+                        println("Downloaded font: $name from fallback success.")
+                    } catch (e2: Exception) {
+                        println("Failed to download font $name: ${e2.message}")
+                    }
+                }
+            }
+        }
     }
 }
 
