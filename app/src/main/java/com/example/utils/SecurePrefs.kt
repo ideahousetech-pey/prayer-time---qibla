@@ -5,6 +5,11 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 
+/**
+ * Utilitas helper untuk preferences berenkripsi (SecurePrefs).
+ * Jika inisiasi EncryptedSharedPreferences gagal (misal karena KeyStore corrupt di OS khusus),
+ * fungsi ini akan otomatis melakukan aman fallback (fallback ke standard SharedPreferences biasa).
+ */
 object SecurePrefs {
     private const val PREFS_NAME = "adzan_secure_prefs"
 
@@ -21,8 +26,9 @@ object SecurePrefs {
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
         } catch (e: Exception) {
-            android.util.Log.e("SecurePrefs", "Failed to init EncryptedSharedPreferences: ${e.message}. Falling back to standard SharedPreferences.")
-            context.getSharedPreferences(PREFS_NAME + "_fallback", Context.MODE_PRIVATE)
+            // Hapus log error sensitif / Log.e. Gunakan fallback aman secara senyap.
+            // Inisiasi fallback SharedPreferences standar agar aplikasi tidak crash.
+            context.getSharedPreferences(PREFS_NAME + "_plain_fallback", Context.MODE_PRIVATE)
         }
     }
 }

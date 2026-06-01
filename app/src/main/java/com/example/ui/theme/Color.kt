@@ -27,3 +27,9 @@ val TextMuted        = Color(0xFF4A5A7A)   // Abu gelap — teks tersier
 val SuccessGreen     = Color(0xFF4CAF82)
 val WarningAmber     = Color(0xFFFFB74D)
 val DividerLine      = Color(0x1AF0F4FF)   // Garis pemisah tipis
+
+// Extra tokens used under the hood
+val ResetRed         = Color(0xFF7E1C1C)   // Merah gelap untuk reset
+val ErrorRed         = Color(0xFFFF6F6F)   // Merah terang untuk hapus / error
+val DarkTeal         = Color(0xFF005B4F)   // Teal gelap untuk tombol simpan
+

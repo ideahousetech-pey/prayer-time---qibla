@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,7 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import id.ideahousetech.prayertime_qibla.data.AppDatabase
 import id.ideahousetech.prayertime_qibla.data.TasbihSession
-import kotlinx.coroutines.CoroutineScope
+import id.ideahousetech.prayertime_qibla.ui.theme.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -53,6 +54,7 @@ fun TasbihScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val vibrator = remember { context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator }
     val toneGenerator = remember { 
         try {
@@ -117,7 +119,7 @@ fun TasbihScreen(
 
     fun saveSessionToDb(name: String, count: Int) {
         if (count <= 0) return
-        CoroutineScope(Dispatchers.IO).launch {
+        scope.launch(Dispatchers.IO) {
             try {
                 tasbihDao.insertSession(
                     TasbihSession(
@@ -133,7 +135,7 @@ fun TasbihScreen(
     }
 
     fun handleClearHistory() {
-        CoroutineScope(Dispatchers.IO).launch {
+        scope.launch(Dispatchers.IO) {
             tasbihDao.clearHistory()
         }
         Toast.makeText(context, "Riwayat dzikir dihapus", Toast.LENGTH_SHORT).show()
@@ -148,8 +150,9 @@ fun TasbihScreen(
         CenterAlignedTopAppBar(
             title = {
                 Text(
-                    "Tasbih Digital",
-                    color = Color(0xFFFFD700),
+                    "TASBIH DIGITAL",
+                    color = GoldPrimary,
+                    fontFamily = CinzelFont,
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp
                 )
@@ -157,9 +160,9 @@ fun TasbihScreen(
             navigationIcon = {
                 IconButton(onClick = onBackClick) {
                     Icon(
-                        imageVector = Icons.Default.ArrowBack,
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = "Kembali",
-                        tint = Color.White
+                        tint = TextPrimary
                     )
                 }
             },
@@ -180,7 +183,7 @@ fun TasbihScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF00382E)),
+                    colors = CardDefaults.cardColors(containerColor = CardSurface),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
@@ -189,7 +192,7 @@ fun TasbihScreen(
                     ) {
                         Text(
                             text = "Pilih Dzikir",
-                            color = Color.White.copy(alpha = 0.7f),
+                            color = TextSecondary,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -214,13 +217,13 @@ fun TasbihScreen(
                                     },
                                     modifier = Modifier.weight(1f),
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (!isCustomDzikirActive && selectedPresetIndex == index) Color(0xFFD4AF37) else Color(0xFF004D40)
+                                        containerColor = if (!isCustomDzikirActive && selectedPresetIndex == index) GoldPrimary else CardElevated
                                     ),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text(
                                         name,
-                                        color = if (!isCustomDzikirActive && selectedPresetIndex == index) Color(0xFF002B24) else Color.White,
+                                        color = if (!isCustomDzikirActive && selectedPresetIndex == index) DeepNight else TextPrimary,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1
@@ -250,13 +253,13 @@ fun TasbihScreen(
                                     },
                                     modifier = Modifier.weight(1f),
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (!isCustomDzikirActive && selectedPresetIndex == index) Color(0xFFD4AF37) else Color(0xFF004D40)
+                                        containerColor = if (!isCustomDzikirActive && selectedPresetIndex == index) GoldPrimary else CardElevated
                                     ),
                                     shape = RoundedCornerShape(8.dp)
                                 ) {
                                     Text(
                                         name,
-                                        color = if (!isCustomDzikirActive && selectedPresetIndex == index) Color(0xFF002B24) else Color.White,
+                                        color = if (!isCustomDzikirActive && selectedPresetIndex == index) DeepNight else TextPrimary,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold,
                                         maxLines = 1
@@ -274,10 +277,10 @@ fun TasbihScreen(
                             },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFFFFD700)
+                                contentColor = GoldPrimary
                             ),
                             border = ButtonDefaults.outlinedButtonBorder.copy(
-                                brush = SolidColor(if (isCustomDzikirActive) Color(0xFFFFD700) else Color.White.copy(alpha = 0.3f))
+                                brush = SolidColor(if (isCustomDzikirActive) GoldPrimary else DividerLine)
                             ),
                             shape = RoundedCornerShape(8.dp)
                         ) {
@@ -297,7 +300,7 @@ fun TasbihScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFF00382E)),
+                    colors = CardDefaults.cardColors(containerColor = CardSurface),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(
@@ -306,7 +309,7 @@ fun TasbihScreen(
                     ) {
                         Text(
                             text = "Target Dzikir: $targetLimit kali",
-                            color = Color.White.copy(alpha = 0.7f),
+                            color = TextSecondary,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -321,7 +324,7 @@ fun TasbihScreen(
                                     modifier = Modifier
                                         .weight(1f)
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(if (selectedTargetIndex == index) Color(0xFFD4AF37) else Color(0xFF004D40))
+                                        .background(if (selectedTargetIndex == index) GoldPrimary else CardElevated)
                                         .clickable {
                                             selectedTargetIndex = index
                                             triggerVibration(50)
@@ -331,7 +334,7 @@ fun TasbihScreen(
                                 ) {
                                     Text(
                                         targetVal,
-                                        color = if (selectedTargetIndex == index) Color(0xFF002B24) else Color.White,
+                                        color = if (selectedTargetIndex == index) DeepNight else TextPrimary,
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp
                                     )
@@ -343,7 +346,7 @@ fun TasbihScreen(
                                 modifier = Modifier
                                     .weight(1.2f)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .background(if (selectedTargetIndex == 3) Color(0xFFD4AF37) else Color(0xFF004D40))
+                                    .background(if (selectedTargetIndex == 3) GoldPrimary else CardElevated)
                                     .clickable {
                                         selectedTargetIndex = 3
                                         showCustomTargetDialog = true
@@ -354,7 +357,7 @@ fun TasbihScreen(
                             ) {
                                 Text(
                                     text = if (selectedTargetIndex == 3) "Kustom: $customTargetValue" else "Lainnya...",
-                                    color = if (selectedTargetIndex == 3) Color(0xFF002B24) else Color.White,
+                                    color = if (selectedTargetIndex == 3) DeepNight else TextPrimary,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
                                     maxLines = 1
@@ -374,11 +377,11 @@ fun TasbihScreen(
                         .shadow(16.dp, CircleShape)
                         .background(
                             Brush.radialGradient(
-                                colors = listOf(Color(0xFF004D40), Color(0xFF001F1A))
+                                colors = listOf(CardElevated, DeepNight)
                             ),
                             CircleShape
                         )
-                        .border(4.dp, Color(0xFFD4AF37).copy(alpha = 0.5f), CircleShape)
+                        .border(4.dp, GoldPrimary.copy(alpha = 0.5f), CircleShape)
                         .clickable {
                             triggerVibration(60)
                             if (counter < targetLimit) {
@@ -403,9 +406,9 @@ fun TasbihScreen(
                     CircularProgressIndicator(
                         progress = animatedProgress,
                         modifier = Modifier.fillMaxSize(0.92f),
-                        color = Color(0xFFFFD700),
+                        color = GoldPrimary,
                         strokeWidth = 6.dp,
-                        trackColor = Color.White.copy(alpha = 0.1f)
+                        trackColor = TextPrimary.copy(alpha = 0.1f)
                     )
 
                     Column(
@@ -414,7 +417,7 @@ fun TasbihScreen(
                     ) {
                         Text(
                             text = currentDzikirName,
-                            color = Color(0xFFFFD700),
+                            color = GoldPrimary,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center,
@@ -424,7 +427,7 @@ fun TasbihScreen(
                         
                         Text(
                             text = "$counter",
-                            color = Color.White,
+                            color = TextPrimary,
                             fontSize = 58.sp,
                             fontWeight = FontWeight.Black
                         )
@@ -432,7 +435,7 @@ fun TasbihScreen(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "/ $targetLimit",
-                            color = Color.White.copy(alpha = 0.6f),
+                            color = TextSecondary,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -459,7 +462,7 @@ fun TasbihScreen(
                             }
                         },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF005b4f)),
+                        colors = ButtonDefaults.buttonColors(containerColor = DarkTeal),
                         shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(14.dp)
                     ) {
@@ -480,7 +483,7 @@ fun TasbihScreen(
                             Toast.makeText(context, "Penghitung direset.", Toast.LENGTH_SHORT).show()
                         },
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7E1C1C)),
+                        colors = ButtonDefaults.buttonColors(containerColor = ResetRed),
                         shape = RoundedCornerShape(12.dp),
                         contentPadding = PaddingValues(14.dp)
                     ) {
@@ -502,14 +505,14 @@ fun TasbihScreen(
                 ) {
                     Text(
                         text = "Riwayat Sesi Dzikir",
-                        color = Color(0xFFFFD700),
+                        color = GoldPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold
                     )
                     if (historySessions.isNotEmpty()) {
                         Text(
                             text = "Hapus Semua",
-                            color = Color(0xFFFF6F6F),
+                            color = ErrorRed,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.clickable { handleClearHistory() }
@@ -529,7 +532,7 @@ fun TasbihScreen(
                     ) {
                         Text(
                             "Belum ada riwayat berdzikir hari ini.\nYuk raih pahala dengan mengingat Allah.",
-                            color = Color.White.copy(alpha = 0.5f),
+                            color = TextSecondary,
                             fontSize = 12.sp,
                             textAlign = TextAlign.Center,
                             lineHeight = 18.sp
@@ -543,9 +546,9 @@ fun TasbihScreen(
 
                     Card(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF003027).copy(alpha = 0.8f)),
+                        colors = CardDefaults.cardColors(containerColor = CardSurface.copy(alpha = 0.8f)),
                         shape = RoundedCornerShape(12.dp),
-                        border = BorderStroke(1.dp, Color(0xFFD4AF37).copy(alpha = 0.15f))
+                        border = BorderStroke(1.dp, GoldPrimary.copy(alpha = 0.15f))
                     ) {
                         Row(
                             modifier = Modifier
@@ -557,14 +560,14 @@ fun TasbihScreen(
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = session.dzikirName,
-                                    color = Color.White,
+                                    color = TextPrimary,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                                 Spacer(modifier = Modifier.height(2.dp))
                                 Text(
                                     text = dateFormatted,
-                                    color = Color.White.copy(alpha = 0.5f),
+                                    color = TextSecondary,
                                     fontSize = 11.sp
                                 )
                             }
@@ -572,16 +575,16 @@ fun TasbihScreen(
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
+                              ) {
                                 Box(
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(6.dp))
-                                        .background(Color(0xFF004D40))
+                                        .background(CardElevated)
                                         .padding(horizontal = 8.dp, vertical = 4.dp)
                                 ) {
                                     Text(
                                         text = "${session.count} kali",
-                                        color = Color(0xFFFFD700),
+                                        color = GoldPrimary,
                                         fontSize = 12.sp,
                                         fontWeight = FontWeight.Bold
                                     )
@@ -589,7 +592,7 @@ fun TasbihScreen(
 
                                 IconButton(
                                     onClick = {
-                                        CoroutineScope(Dispatchers.IO).launch {
+                                        scope.launch(Dispatchers.IO) {
                                             tasbihDao.deleteSession(session.id)
                                         }
                                         triggerVibration(60)
@@ -599,7 +602,7 @@ fun TasbihScreen(
                                     Icon(
                                         imageVector = Icons.Default.Delete,
                                         contentDescription = "Hapus",
-                                        tint = Color.White.copy(alpha = 0.4f),
+                                        tint = TextSecondary.copy(alpha = 0.4f),
                                         modifier = Modifier.size(16.dp)
                                     )
                                 }
@@ -616,7 +619,7 @@ fun TasbihScreen(
         Dialog(onDismissRequest = { showCustomDzikirDialog = false }) {
             Card(
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF00382E))
+                colors = CardDefaults.cardColors(containerColor = CardSurface)
             ) {
                 Column(
                     modifier = Modifier.padding(18.dp),
@@ -624,7 +627,7 @@ fun TasbihScreen(
                 ) {
                     Text(
                         "Dzikir Kustom Baru",
-                        color = Color(0xFFFFD700),
+                        color = GoldPrimary,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -633,12 +636,12 @@ fun TasbihScreen(
                     OutlinedTextField(
                         value = customDzikirInput,
                         onValueChange = { customDzikirInput = it },
-                        placeholder = { Text("Contoh: Ya Rahman Ya Rahim", color = Color.White.copy(alpha = 0.5f)) },
+                        placeholder = { Text("Contoh: Ya Rahman Ya Rahim", color = TextSecondary) },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFFFFD700),
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.3f)
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary,
+                            focusedBorderColor = GoldPrimary,
+                            unfocusedBorderColor = DividerLine
                         ),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
@@ -653,8 +656,8 @@ fun TasbihScreen(
                         OutlinedButton(
                             onClick = { showCustomDzikirDialog = false },
                             modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                            border = BorderStroke(1.dp, DividerLine)
                         ) {
                             Text("Batal", fontSize = 12.sp)
                         }
@@ -674,9 +677,9 @@ fun TasbihScreen(
                                 }
                             },
                             modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD4AF37))
+                            colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary)
                         ) {
-                            Text("Terapkan", color = Color(0xFF002B24), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Terapkan", color = DeepNight, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -689,7 +692,7 @@ fun TasbihScreen(
         Dialog(onDismissRequest = { showCustomTargetDialog = false }) {
             Card(
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF00382E))
+                colors = CardDefaults.cardColors(containerColor = CardSurface)
             ) {
                 Column(
                     modifier = Modifier.padding(18.dp),
@@ -697,7 +700,7 @@ fun TasbihScreen(
                 ) {
                     Text(
                         "Set Target Dzikir Kustom",
-                        color = Color(0xFFFFD700),
+                        color = GoldPrimary,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -709,12 +712,12 @@ fun TasbihScreen(
                             if (input.all { it.isDigit() }) customTargetInput = input
                         },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        placeholder = { Text("Contoh: 150", color = Color.White.copy(alpha = 0.5f)) },
+                        placeholder = { Text("Contoh: 150", color = TextSecondary) },
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFFFFD700),
-                            unfocusedBorderColor = Color.White.copy(alpha = 0.3f)
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary,
+                            focusedBorderColor = GoldPrimary,
+                            unfocusedBorderColor = DividerLine
                         ),
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
@@ -729,8 +732,8 @@ fun TasbihScreen(
                         OutlinedButton(
                             onClick = { showCustomTargetDialog = false },
                             modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
-                            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.3f))
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                            border = BorderStroke(1.dp, DividerLine)
                         ) {
                             Text("Batal", fontSize = 12.sp)
                         }
@@ -746,9 +749,9 @@ fun TasbihScreen(
                                 }
                             },
                             modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD4AF37))
+                            colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary)
                         ) {
-                            Text("Simpan", color = Color(0xFF002B24), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Simpan", color = DeepNight, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
