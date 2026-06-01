@@ -2,34 +2,48 @@ package id.ideahousetech.prayertime_qibla.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Background Layers
-val DeepNight        = Color(0xFF0A1628)   // Background utama — midnight navy
-val MidnightLayer    = Color(0xFF0F1F3D)   // Layer kedua — biru tua gelap
-val CardSurface      = Color(0xFF162035)   // Permukaan card
-val CardElevated     = Color(0xFF1C2A44)   // Card lebih terang
+/**
+ * ==========================================
+ * DESIGN TOKENS: ISLAMIC LUXURY 2026 PALETTE
+ * ==========================================
+ *
+ * An opulent, deeply spiritual design system combining the royal legacy of
+ * Islamic architecture with ultra-modern 2026 Glassmorphism and Material 3 Expressive.
+ *
+ * Base Mood: Imperial Obsidian & Frosted Emerald Velvet
+ * Accents: Hand-burnished Imperial Gold & Luminous Mint Silk
+ */
 
-// Gold Hierarchy
-val GoldPrimary      = Color(0xFFD4AF37)   // Gold klasik — elemen utama
-val GoldLight        = Color(0xFFF5E27A)   // Gold cerah — highlights
-val GoldDim          = Color(0xFF8B7420)   // Gold redup — subtle accents
-val GoldGlow         = Color(0x33D4AF37)   // Gold transparan — glow effect
+// --- Base Canvas Layers (Deep Malachite & Obsidian)
+val DeepNight        = Color(0xFF030A07)   // Imperial Obsidian - deep rich black-green base
+val MidnightLayer    = Color(0xFF071912)   // Velvet Malachite - deep rich mid-layer
+val CardSurface      = Color(0xFF0C241B)   // Satin Emerald - luxurious containers surface
+val CardElevated     = Color(0xFF14362A)   // Luminous Verdue - elevated surfaces
 
-// Teal Accent
-val TealAccent       = Color(0xFF4DB6AC)   // Teal — secondary accent
-val TealDim          = Color(0xFF1A4A47)   // Teal gelap
+// --- Crown Gold Hierarchy (Aura of Luxury)
+val GoldPrimary      = Color(0xFFE5C158)   // Imperial Gold - classical warm metallic accent
+val GoldLight        = Color(0xFFFDEFAF)   // Champagne Gold - high-end polished highlights
+val GoldDim          = Color(0xFF9E7E38)   // Antique Burnished Gold - subtle secondary actions
+val GoldGlow         = Color(0x22E5C158)   // Translucent Gold Glaze - soft background illumination
 
-// Text
-val TextPrimary      = Color(0xFFF0F4FF)   // Putih kebiruan — teks utama
-val TextSecondary    = Color(0xFF8B9DC3)   // Abu biru — teks sekunder
-val TextMuted        = Color(0xFF4A5A7A)   // Abu gelap — teks tersier
+// --- Radiant Accents
+val TealAccent       = Color(0xFF2EC4B6)   // Mystic Turquoise - spiritual neon highlight
+val TealDim          = Color(0xFF0A5C54)   // Deep Jade Patina - secondary background accent
+val DarkTeal         = Color(0xFF0B4237)   // Royal Forest Teal - high-contrast premium fill
 
-// Semantic
-val SuccessGreen     = Color(0xFF4CAF82)
-val WarningAmber     = Color(0xFFFFB74D)
-val DividerLine      = Color(0x1AF0F4FF)   // Garis pemisah tipis
+// --- Elegant Silk Typography & Icons
+val TextPrimary      = Color(0xFFF5FCF8)   // Pristine Pearl Silk - high contrast, soft typing on eyes
+val TextSecondary    = Color(0xFFA5C5B5)   // Polished Mint - auxiliary headings and indicators
+val TextMuted        = Color(0xFF537A68)   // Velvet Shadow - status outlines and muted metadata
 
-// Extra tokens used under the hood
-val ResetRed         = Color(0xFF7E1C1C)   // Merah gelap untuk reset
-val ErrorRed         = Color(0xFFFF6F6F)   // Merah terang untuk hapus / error
-val DarkTeal         = Color(0xFF005B4F)   // Teal gelap untuk tombol simpan
+// --- Glassmorphism & High-Contrast Overlay Elements
+val GlassBackdrop    = Color(0x1F0C241B)   // Ultrathin Frosted Acrylic Overlay
+val GlassBorder      = Color(0x3DFDEFAF)   // Ultraprecise 2026 Hairline Golden Frame
+val GlassGaze        = Color(0x12FFFFFF)   // Specular Sheen highlight
 
+// --- Semantic Safeguards & Extra Tokens
+val SuccessGreen     = Color(0xFF34D399)   // Healing Herbal Green
+val WarningAmber     = Color(0xFFFB923C)   // Warm Safran Orange
+val DividerLine      = Color(0x1DF5FCF8)   // Ultra-light silk divider
+val ResetRed         = Color(0xFF6B1A1A)   // Rich Ruby Maroon
+val ErrorRed         = Color(0xFFF87171)   // Vibrant Crimson Rose

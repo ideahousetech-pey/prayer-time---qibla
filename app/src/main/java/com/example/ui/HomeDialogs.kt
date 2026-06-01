@@ -274,14 +274,48 @@ fun SettingsDialog(
                 val targetFileName = if (isSubuh) "adzan_fajr.mp3" else "adzan.mp3"
                 val targetFile = File(context.filesDir, targetFileName)
 
-                val url = java.net.URL(adzan.url)
-                val connection = url.openConnection()
-                connection.connect()
-                val fileLength = connection.contentLength
+                var currentUrlStr = adzan.url
+                var connection: java.net.HttpURLConnection? = null
+                var redirectCount = 0
+                val maxRedirects = 5
+                
+                while (redirectCount < maxRedirects) {
+                    val url = java.net.URL(currentUrlStr)
+                    connection = url.openConnection() as java.net.HttpURLConnection
+                    connection.instanceFollowRedirects = true
+                    connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    connection.connectTimeout = 20000
+                    connection.readTimeout = 20000
+                    
+                    val status = connection.responseCode
+                    if (status == java.net.HttpURLConnection.HTTP_MOVED_TEMP || 
+                        status == java.net.HttpURLConnection.HTTP_MOVED_PERM || 
+                        status == 307 || status == 308) {
+                        val newUrl = connection.getHeaderField("Location")
+                        if (newUrl != null) {
+                            currentUrlStr = newUrl
+                            redirectCount++
+                            connection.disconnect()
+                            continue
+                        }
+                    }
+                    break
+                }
 
-                val input = java.io.BufferedInputStream(url.openStream(), 8192)
-                val output = FileOutputStream(targetFile)
-                val data = ByteArray(1024)
+                if (connection == null) {
+                    throw Exception("Tidak dapat membuka koneksi.")
+                }
+
+                val status = connection.responseCode
+                if (status !in 200..299) {
+                    throw Exception("Gagal mengunduh (HTTP $status)")
+                }
+
+                val fileLength = connection.contentLength
+                val input = java.io.BufferedInputStream(connection.inputStream, 8192)
+                val tmpFile = File(context.filesDir, "${targetFileName}.tmp")
+                val output = FileOutputStream(tmpFile)
+                val data = ByteArray(8192)
                 var total = 0L
                 var count: Int
                 while (input.read(data).also { count = it } != -1) {
@@ -294,6 +328,23 @@ fun SettingsDialog(
                 output.flush()
                 output.close()
                 input.close()
+                connection.disconnect()
+
+                // Rename temp file on success
+                if (tmpFile.exists() && tmpFile.length() > 100) {
+                    if (targetFile.exists()) {
+                        targetFile.delete()
+                    }
+                    if (tmpFile.renameTo(targetFile)) {
+                        // success!
+                    } else {
+                        // fallback copy
+                        tmpFile.copyTo(targetFile, overwrite = true)
+                        tmpFile.delete()
+                    }
+                } else {
+                    throw Exception("File hasil unduhan rusak atau kosong.")
+                }
 
                 withContext(Dispatchers.Main) {
                     val savedName = "${adzan.displayName} (Internet)"
@@ -1120,6 +1171,53 @@ fun SettingsDialog(
                             }
                         }
                     }
+                }
+
+                // 2026 ISLAMIC LUXURY DESIGN SHOWCASE TRIGGER
+                Spacer(modifier = Modifier.height(16.dp))
+
+                var showDesignSystemShowcase by remember { mutableStateOf(false) }
+
+                if (showDesignSystemShowcase) {
+                    Dialog(onDismissRequest = { showDesignSystemShowcase = false }) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 620.dp)
+                                .border(1.dp, GoldPrimary, RoundedCornerShape(24.dp)),
+                            shape = RoundedCornerShape(24.dp),
+                            colors = CardDefaults.cardColors(containerColor = DeepNight)
+                        ) {
+                            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                                id.ideahousetech.prayertime_qibla.ui.components.IslamicLuxuryShowcase(
+                                    onDismiss = { showDesignSystemShowcase = false }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Button(
+                    onClick = { showDesignSystemShowcase = true },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = TealAccent.copy(alpha = 0.12f),
+                        contentColor = TealAccent
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, TealAccent.copy(alpha = 0.4f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = "Design System",
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Lihat Design System Islamic Luxury 2026",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
