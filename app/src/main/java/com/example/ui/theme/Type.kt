@@ -2,19 +2,35 @@ package id.ideahousetech.prayertime_qibla.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.googlefonts.GoogleFont
+import androidx.compose.ui.text.googlefonts.Font
 import androidx.compose.ui.unit.sp
 import id.ideahousetech.prayertime_qibla.R
 
-// File font tersedia di res/font/:
-// cinzel_regular.ttf, cinzel_bold.ttf
-// nunito_light.ttf, nunito_regular.ttf, nunito_semibold.ttf, nunito_bold.ttf
+// Definisikan Font Provider Google Fonts yang terpercaya lewat Play Services
+val fontProvider = GoogleFont.Provider(
+    providerAuthority = "com.google.android.gms.fonts",
+    providerPackage = "com.google.android.gms",
+    certificates = R.array.com_google_android_gms_fonts_certs
+)
 
-val CinzelFont = FontFamily.Serif
+// Font Cinzel yang dipanggil dinamis
+val cinzelFontName = GoogleFont("Cinzel")
+val CinzelFont = FontFamily(
+    Font(googleFont = cinzelFontName, fontProvider = fontProvider, weight = FontWeight.Normal),
+    Font(googleFont = cinzelFontName, fontProvider = fontProvider, weight = FontWeight.Bold)
+)
 
-val NunitoFont = FontFamily.SansSerif
+// Font Nunito yang dipanggil dinamis
+val nunitoFontName = GoogleFont("Nunito")
+val NunitoFont = FontFamily(
+    Font(googleFont = nunitoFontName, fontProvider = fontProvider, weight = FontWeight.Light),
+    Font(googleFont = nunitoFontName, fontProvider = fontProvider, weight = FontWeight.Normal),
+    Font(googleFont = nunitoFontName, fontProvider = fontProvider, weight = FontWeight.SemiBold),
+    Font(googleFont = nunitoFontName, fontProvider = fontProvider, weight = FontWeight.Bold)
+)
 
 val AppTypography = Typography(
     displayLarge = TextStyle(
