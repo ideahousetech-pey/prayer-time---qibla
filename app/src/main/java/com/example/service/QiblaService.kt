@@ -92,28 +92,34 @@ class QiblaService(context: Context) : SensorEventListener {
 
     // Callbacks SensorEventListener
     override fun onSensorChanged(event: SensorEvent) {
-        if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
-            System.arraycopy(event.values, 0, gravity, 0, event.values.size)
-            hasGravity = true
-        } else if (event.sensor.type == Sensor.TYPE_MAGNETIC_FIELD) {
-            System.arraycopy(event.values, 0, geomagnetic, 0, event.values.size)
-            hasGeomagnetic = true
-        }
-
-        if (hasGravity && hasGeomagnetic) {
-            val rMatrix = FloatArray(9)
-            val iMatrix = FloatArray(9)
-            if (SensorManager.getRotationMatrix(rMatrix, iMatrix, gravity, geomagnetic)) {
-                val orientation = FloatArray(3)
-                SensorManager.getOrientation(rMatrix, orientation)
-                
-                // orientation[0] adalah azimuth dalam satuan radian (hadapan perangkat relative utara)
-                var azimuthDeg = Math.toDegrees(orientation[0].toDouble()).toFloat()
-                azimuthDeg = (azimuthDeg + 360f) % 360f
-                
-                // Kirimkan nilai sudut terbaru secara halus ke subscriber
-                _azimuthFlow.value = azimuthDeg
+        try {
+            if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+                val copySize = minOf(event.values.size, gravity.size)
+                System.arraycopy(event.values, 0, gravity, 0, copySize)
+                hasGravity = true
+            } else if (event.sensor.type == Sensor.TYPE_MAGNETIC_FIELD) {
+                val copySize = minOf(event.values.size, geomagnetic.size)
+                System.arraycopy(event.values, 0, geomagnetic, 0, copySize)
+                hasGeomagnetic = true
             }
+
+            if (hasGravity && hasGeomagnetic) {
+                val rMatrix = FloatArray(9)
+                val iMatrix = FloatArray(9)
+                if (SensorManager.getRotationMatrix(rMatrix, iMatrix, gravity, geomagnetic)) {
+                    val orientation = FloatArray(3)
+                    SensorManager.getOrientation(rMatrix, orientation)
+                    
+                    // orientation[0] adalah azimuth dalam satuan radian (hadapan perangkat relative utara)
+                    var azimuthDeg = Math.toDegrees(orientation[0].toDouble()).toFloat()
+                    azimuthDeg = (azimuthDeg + 360f) % 360f
+                    
+                    // Kirimkan nilai sudut terbaru secara halus ke subscriber
+                    _azimuthFlow.value = azimuthDeg
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("QiblaService", "Gagal melakukan asimilasi data sensor kompas: ${e.message}")
         }
     }
 

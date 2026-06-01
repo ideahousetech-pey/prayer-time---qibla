@@ -95,37 +95,93 @@ object HijriDateUtils {
     }
 
     /**
-     * Mengkonversi Calendar Gregorian ke tanggal Hijriah lengkap dengan nama bulan Indonesia.
-     * Menggunakan Java Time API untuk akurasi optimal tanpa risiko crash.
+     * Konverter Hijriah Tabular Sederhana & Kokoh (Pure Math) sebagai Fallback Luring
+     * Berjalan lancar di semua API Android tanpa butuh java.time atau desugaring.
      */
-    fun convertToHijri(calendar: Calendar): HijriDate {
+    private fun convertToHijriTabular(calendar: Calendar): HijriDate {
         val gYear = calendar.get(Calendar.YEAR)
         val gMonth = calendar.get(Calendar.MONTH) + 1
         val gDay = calendar.get(Calendar.DAY_OF_MONTH)
 
-        // Konversi ke LocalDate kemudian HijrahDate
-        val localDate = LocalDate.of(gYear, gMonth, gDay)
-        val hijrahDate = HijrahDate.from(localDate)
+        // Hitung Julian Day
+        var y = gYear
+        var m = gMonth
+        if (m <= 2) {
+            y -= 1
+            m += 12
+        }
+        val a = Math.floor(y / 100.0)
+        val b = 2 - a + Math.floor(a / 4.0)
+        val jd = Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + gDay + b - 1524.5
 
-        val hDay = hijrahDate.get(ChronoField.DAY_OF_MONTH)
-        val hMonth = hijrahDate.get(ChronoField.MONTH_OF_YEAR)
-        val hYear = hijrahDate.get(ChronoField.YEAR)
+        val l = jd.toInt() - 1948440 + 10632
+        val n = ((l - 1) / 10631).toInt()
+        val lOffset = l - 10631 * n + 354
+        val j = (((10985 - lOffset) / 5316).toInt() * ((50 * lOffset + 46) / 17719).toInt() + 
+                 ((lOffset / 5670).toInt() * ((43 * lOffset + 152) / 15238).toInt()))
+        val lRemaining = lOffset - ((30 * j + 29) / 30).toInt() + 30
+        
+        val hMonthNum = ((24 * lRemaining - 17) / 709).toInt()
+        val hDay = lRemaining - ((30 * hMonthNum + 29) / 30).toInt() + 29
+        val hYear = 30 * n + j - 30
 
         val months = listOf(
             "Muharram", "Safar", "Rabi'ul Awwal", "Rabi'ul Akhir", 
             "Jumadil Awwal", "Jumadil Akhir", "Rajab", "Sya'ban", 
             "Ramadhan", "Syawal", "Dzulqa'dah", "Dzulhijjah"
         )
-        val monthName = months[(hMonth - 1).coerceIn(0, 11)]
+        val monthIdx = (hMonthNum - 1).coerceIn(0, 11)
+        val monthName = months[monthIdx]
         val displayState = "$hDay $monthName $hYear H"
 
         return HijriDate(
             day = hDay,
-            month = hMonth,
+            month = hMonthNum.coerceIn(1, 12),
             year = hYear,
             formatted = displayState,
             monthName = monthName
         )
+    }
+
+    /**
+     * Mengkonversi Calendar Gregorian ke tanggal Hijriah lengkap dengan nama bulan Indonesia.
+     * Menggunakan Java Time API untuk akurasi optimal dengan fallback tabular luring yang aman ter-skema.
+     */
+    fun convertToHijri(calendar: Calendar): HijriDate {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            try {
+                val gYear = calendar.get(Calendar.YEAR)
+                val gMonth = calendar.get(Calendar.MONTH) + 1
+                val gDay = calendar.get(Calendar.DAY_OF_MONTH)
+
+                // Konversi ke LocalDate kemudian HijrahDate
+                val localDate = LocalDate.of(gYear, gMonth, gDay)
+                val hijrahDate = HijrahDate.from(localDate)
+
+                val hDay = hijrahDate.get(ChronoField.DAY_OF_MONTH)
+                val hMonth = hijrahDate.get(ChronoField.MONTH_OF_YEAR)
+                val hYear = hijrahDate.get(ChronoField.YEAR)
+
+                val months = listOf(
+                    "Muharram", "Safar", "Rabi'ul Awwal", "Rabi'ul Akhir", 
+                    "Jumadil Awwal", "Jumadil Akhir", "Rajab", "Sya'ban", 
+                    "Ramadhan", "Syawal", "Dzulqa'dah", "Dzulhijjah"
+                )
+                val monthName = months[(hMonth - 1).coerceIn(0, 11)]
+                val displayState = "$hDay $monthName $hYear H"
+
+                return HijriDate(
+                    day = hDay,
+                    month = hMonth,
+                    year = hYear,
+                    formatted = displayState,
+                    monthName = monthName
+                )
+            } catch (t: Throwable) {
+                android.util.Log.e("HijriDateUtils", "Gagal memproses Java Time, beralih ke tabular fallback: ${t.message}")
+            }
+        }
+        return convertToHijriTabular(calendar)
     }
 
     /**
@@ -143,16 +199,25 @@ object HijriDateUtils {
         cal.set(Calendar.MILLISECOND, 0)
         
         var totalDays = 29
-        try {
-            val hijrahDate = HijrahDate.of(hYear, hMonth, 1)
-            val epochDay = hijrahDate.toEpochDay()
-            val localDate = LocalDate.ofEpochDay(epochDay)
-            cal.set(Calendar.YEAR, localDate.year)
-            cal.set(Calendar.MONTH, localDate.monthValue - 1)
-            cal.set(Calendar.DAY_OF_MONTH, localDate.dayOfMonth)
-            totalDays = hijrahDate.lengthOfMonth()
-        } catch (e: Exception) {
-            // fallback kasar jika terjadi error atau tahun/bulan di luar batas
+        var initialized = false
+
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            try {
+                val hijrahDate = HijrahDate.of(hYear, hMonth, 1)
+                val epochDay = hijrahDate.toEpochDay()
+                val localDate = LocalDate.ofEpochDay(epochDay)
+                cal.set(Calendar.YEAR, localDate.year)
+                cal.set(Calendar.MONTH, localDate.monthValue - 1)
+                cal.set(Calendar.DAY_OF_MONTH, localDate.dayOfMonth)
+                totalDays = hijrahDate.lengthOfMonth()
+                initialized = true
+            } catch (t: Throwable) {
+                android.util.Log.e("HijriDateUtils", "Gagal memuat grid tanggal HijrahDate.of: ${t.message}")
+            }
+        }
+
+        if (!initialized) {
+            // fallback kasar jika terjadi error atau tahun/bulan di luar batas atau API < 26
             var foundDate = false
             val searchCal = Calendar.getInstance()
             searchCal.add(Calendar.MONTH, -6) // Cari dari 6 bulan ke belakang

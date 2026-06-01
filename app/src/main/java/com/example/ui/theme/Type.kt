@@ -12,17 +12,9 @@ import id.ideahousetech.prayertime_qibla.R
 // cinzel_regular.ttf, cinzel_bold.ttf
 // nunito_light.ttf, nunito_regular.ttf, nunito_semibold.ttf, nunito_bold.ttf
 
-val CinzelFont = FontFamily(
-    Font(R.font.cinzel_regular, FontWeight.Normal),
-    Font(R.font.cinzel_bold,    FontWeight.Bold),
-)
+val CinzelFont = FontFamily.Serif
 
-val NunitoFont = FontFamily(
-    Font(R.font.nunito_light,    FontWeight.Light),
-    Font(R.font.nunito_regular,  FontWeight.Normal),
-    Font(R.font.nunito_semibold, FontWeight.SemiBold),
-    Font(R.font.nunito_bold,     FontWeight.Bold),
-)
+val NunitoFont = FontFamily.SansSerif
 
 val AppTypography = Typography(
     displayLarge = TextStyle(

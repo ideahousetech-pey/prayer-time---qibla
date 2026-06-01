@@ -37,6 +37,9 @@ import id.ideahousetech.prayertime_qibla.model.IslamicHoliday
 import id.ideahousetech.prayertime_qibla.ui.theme.*
 import id.ideahousetech.prayertime_qibla.utils.SecurePrefs
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 
@@ -228,6 +231,8 @@ fun HolidayDialog(
     }
 }
 
+data class OnlineAdzan(val displayName: String, val url: String, val desc: String)
+
 @Composable
 fun SettingsDialog(
     locationViewModel: LocationViewModel,
@@ -236,6 +241,17 @@ fun SettingsDialog(
 ) {
     val context = LocalContext.current
     val prefs = remember { SecurePrefs.get(context) }
+    val scope = rememberCoroutineScope()
+
+    val onlineAdzans = remember {
+        listOf(
+            OnlineAdzan("Adzan Makkah", "https://www.islamcan.com/audio/adhans/adhan1.mp3", "Adzan syahdu nan agung dari Masjidil Haram, Makkah."),
+            OnlineAdzan("Adzan Madinah", "https://www.islamcan.com/audio/adhans/adhan10.mp3", "Adzan merdu menenangkan dari Masjid Nabawi, Madinah."),
+            OnlineAdzan("Adzan Mesir", "https://www.islamcan.com/audio/adhans/adhan13.mp3", "Adzan bernada indah khas gaya legendaris Mesir."),
+            OnlineAdzan("Adzan Al-Aqsa", "https://www.islamcan.com/audio/adhans/adhan14.mp3", "Adzan khidmat menyentuh kalbu dari Masjidil Aqsa."),
+            OnlineAdzan("Adzan Makkah Subuh", "https://www.islamcan.com/audio/adhans/adhan2.mp3", "Adzan khusus Subuh (dengan tambahan Ash-Shalaatu Khairum Minan-Naum).")
+        )
+    }
 
     var isAlarmEnabled by remember { mutableStateOf(prefs.getBoolean("enable_adzan_alarm", true)) }
     var isDailyReminderEnabled by remember { mutableStateOf(prefs.getBoolean("enable_daily_reminder", true)) }
@@ -243,6 +259,62 @@ fun SettingsDialog(
 
     var customAdzanName by remember { mutableStateOf(prefs.getString("custom_adzan_name", null)) }
     var customAdzanFajrName by remember { mutableStateOf(prefs.getString("custom_adzan_fajr_name", null)) }
+
+    var isDownloading by remember { mutableStateOf(false) }
+    var downloadProgress by remember { mutableStateOf(0f) }
+    var downloadingName by remember { mutableStateOf("") }
+
+    fun downloadAdzanOnline(adzan: OnlineAdzan, isSubuh: Boolean) {
+        if (isDownloading) return
+        isDownloading = true
+        downloadProgress = 0f
+        downloadingName = adzan.displayName + (if (isSubuh) " (Subuh)" else " (Umum)")
+        scope.launch(Dispatchers.IO) {
+            try {
+                val targetFileName = if (isSubuh) "adzan_fajr.mp3" else "adzan.mp3"
+                val targetFile = File(context.filesDir, targetFileName)
+
+                val url = java.net.URL(adzan.url)
+                val connection = url.openConnection()
+                connection.connect()
+                val fileLength = connection.contentLength
+
+                val input = java.io.BufferedInputStream(url.openStream(), 8192)
+                val output = FileOutputStream(targetFile)
+                val data = ByteArray(1024)
+                var total = 0L
+                var count: Int
+                while (input.read(data).also { count = it } != -1) {
+                    total += count
+                    if (fileLength > 0) {
+                        downloadProgress = total.toFloat() / fileLength.toFloat()
+                    }
+                    output.write(data, 0, count)
+                }
+                output.flush()
+                output.close()
+                input.close()
+
+                withContext(Dispatchers.Main) {
+                    val savedName = "${adzan.displayName} (Internet)"
+                    if (isSubuh) {
+                        prefs.edit().putString("custom_adzan_fajr_name", savedName).apply()
+                        customAdzanFajrName = savedName
+                    } else {
+                        prefs.edit().putString("custom_adzan_name", savedName).apply()
+                        customAdzanName = savedName
+                    }
+                    isDownloading = false
+                    Toast.makeText(context, "Selesai mengunduh & menerapkan: $savedName", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    isDownloading = false
+                    Toast.makeText(context, "Gagal mengunduh adzan: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
+        }
+    }
 
     var player: MediaPlayer? by remember { mutableStateOf(null) }
     var activePreview by remember { mutableStateOf<String?>(null) } // "umum" or "fajr" or null
@@ -260,7 +332,7 @@ fun SettingsDialog(
             player = null
 
             val file = File(context.filesDir, fileName)
-            if (file.exists()) {
+            if (file.exists() && file.length() > 100) {
                 player = MediaPlayer().apply {
                     setDataSource(file.absolutePath)
                     prepare()
@@ -906,6 +978,145 @@ fun SettingsDialog(
                                     tint = ErrorRed,
                                     modifier = Modifier.size(16.dp)
                                 )
+                            }
+                        }
+                    }
+                }
+
+                // ------------------ UNDUH ADZAN DARI INTERNET SINKRONISASI ------------------
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "UNDUH ADZAN DARI INTERNET",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = GoldPrimary,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+                )
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, DividerLine, RoundedCornerShape(16.dp)),
+                    colors = CardDefaults.cardColors(containerColor = CardElevated.copy(alpha = 0.2f)),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        if (isDownloading) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                CircularProgressIndicator(
+                                    progress = downloadProgress,
+                                    color = GoldPrimary,
+                                    trackColor = DividerLine,
+                                    modifier = Modifier.size(36.dp)
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = "Mengunduh $downloadingName...",
+                                    fontSize = 13.sp,
+                                    color = TextPrimary,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "${(downloadProgress * 100).toInt()}% selesai",
+                                    fontSize = 11.sp,
+                                    color = TealAccent,
+                                    modifier = Modifier.padding(top = 2.dp)
+                                )
+                            }
+                        } else {
+                            Text(
+                                text = "Koleksi Adzan Terpopuler Dunia (Unduh langsung):",
+                                fontSize = 12.sp,
+                                color = TextPrimary,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(bottom = 8.dp, start = 2.dp)
+                            )
+
+                            onlineAdzans.forEach { adzan ->
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 6.dp)
+                                        .background(DividerLine.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                                        .padding(10.dp)
+                                ) {
+                                    Text(
+                                        text = adzan.displayName,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = GoldPrimary
+                                    )
+                                    Text(
+                                        text = adzan.desc,
+                                        fontSize = 11.sp,
+                                        color = TextSecondary,
+                                        modifier = Modifier.padding(bottom = 4.dp)
+                                    )
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Button(
+                                            onClick = { downloadAdzanOnline(adzan, isSubuh = false) },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = GoldPrimary,
+                                                contentColor = DeepNight
+                                            ),
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(32.dp)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Download,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(12.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("Pasang Umum", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+
+                                        Button(
+                                            onClick = { downloadAdzanOnline(adzan, isSubuh = true) },
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = TealAccent,
+                                                contentColor = DeepNight
+                                            ),
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(32.dp)
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.Center
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Download,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(12.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("Pasang Subuh", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }

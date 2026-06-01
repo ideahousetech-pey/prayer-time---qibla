@@ -88,36 +88,40 @@ fun CalendarScreen(
 
                 // 2. Navigasi Bulan / Tahun Panel
                 val masehiMonthRange = remember(activeMonth, activeYear) {
-                    try {
-                        val hijrahDateFirst = java.time.chrono.HijrahDate.of(activeYear, activeMonth, 1)
-                        val localDateFirst = java.time.LocalDate.ofEpochDay(hijrahDateFirst.toEpochDay())
-                        val startDay = localDateFirst.dayOfMonth
-                        val startMonth = localDateFirst.monthValue
-                        val startYear = localDateFirst.year
+                    var rangeDisplay = "Mei - Juni 2026"
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                        try {
+                            val hijrahDateFirst = java.time.chrono.HijrahDate.of(activeYear, activeMonth, 1)
+                            val localDateFirst = java.time.LocalDate.ofEpochDay(hijrahDateFirst.toEpochDay())
+                            val startDay = localDateFirst.dayOfMonth
+                            val startMonth = localDateFirst.monthValue
+                            val startYear = localDateFirst.year
 
-                        val length = hijrahDateFirst.lengthOfMonth()
-                        val localDateLast = localDateFirst.plusDays(length.toLong() - 1)
-                        val endDay = localDateLast.dayOfMonth
-                        val endMonth = localDateLast.monthValue
-                        val endYear = localDateLast.year
+                            val length = hijrahDateFirst.lengthOfMonth()
+                            val localDateLast = localDateFirst.plusDays(length.toLong() - 1)
+                            val endDay = localDateLast.dayOfMonth
+                            val endMonth = localDateLast.monthValue
+                            val endYear = localDateLast.year
 
-                        val monthsIndo = listOf(
-                            "Januari", "Februari", "Maret", "April", "Mei", "Juni",
-                            "Juli", "Agustus", "September", "Oktober", "November", "Desember"
-                        )
+                            val monthsIndo = listOf(
+                                "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+                                "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+                            )
 
-                        if (startMonth == endMonth) {
-                            "$startDay - $endDay ${monthsIndo[startMonth - 1]} $startYear"
-                        } else {
-                            if (startYear == endYear) {
-                                "$startDay ${monthsIndo[startMonth - 1]} - $endDay ${monthsIndo[endMonth - 1]} $startYear"
+                            rangeDisplay = if (startMonth == endMonth) {
+                                "$startDay - $endDay ${monthsIndo[startMonth - 1]} $startYear"
                             } else {
-                                "$startDay ${monthsIndo[startMonth - 1]} $startYear - $endDay ${monthsIndo[endMonth - 1]} $endYear"
+                                if (startYear == endYear) {
+                                    "$startDay ${monthsIndo[startMonth - 1]} - $endDay ${monthsIndo[endMonth - 1]} $startYear"
+                                } else {
+                                    "$startDay ${monthsIndo[startMonth - 1]} $startYear - $endDay ${monthsIndo[endMonth - 1]} $endYear"
+                                }
                             }
+                        } catch (t: Throwable) {
+                            android.util.Log.e("CalendarScreen", "Gagal menghitung rentang bulan masehi: ${t.message}")
                         }
-                    } catch (e: Exception) {
-                        "Mei - Juni 2026"
                     }
+                    rangeDisplay
                 }
 
                 CalendarNavigationHeader(

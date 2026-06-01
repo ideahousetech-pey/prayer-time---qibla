@@ -113,24 +113,24 @@ class PrayerViewModel(private val context: Context) : ViewModel() {
                 _monthlySchedule.value = schedule
                 
                 // Cari jadwal untuk hari ini (biasanya berindeks ke day-1)
-                val dayIndex = (currentDay - 1).coerceIn(0, schedule.size - 1)
-                val todayData = schedule[dayIndex]
+                val dayIndex = if (schedule.isNotEmpty()) (currentDay - 1).coerceIn(0, schedule.size - 1) else 0
+                val todayData = if (schedule.isNotEmpty()) schedule[dayIndex] else null
                 _todaySchedule.value = todayData
 
                 // Mengaktifkan alarm adzan harian lewat NotificationService
                 launch(Dispatchers.Main) {
-                    notificationService.scheduleDailyAlarms(todayData)
+                    todayData?.let { notificationService.scheduleDailyAlarms(it) }
                 }
             } else {
                 // Total fallback dari perhitungan astronomis lokal langsung
                 val localSchedule = prayerService.calculateOfflineMonthlyPrayerTimes(lat, lon, currentMonth, currentYear)
                 _monthlySchedule.value = localSchedule
-                val dayIndex = (currentDay - 1).coerceIn(0, localSchedule.size - 1)
-                val todayData = localSchedule[dayIndex]
+                val dayIndex = if (localSchedule.isNotEmpty()) (currentDay - 1).coerceIn(0, localSchedule.size - 1) else 0
+                val todayData = if (localSchedule.isNotEmpty()) localSchedule[dayIndex] else null
                 _todaySchedule.value = todayData
                 
                 launch(Dispatchers.Main) {
-                    notificationService.scheduleDailyAlarms(todayData)
+                    todayData?.let { notificationService.scheduleDailyAlarms(it) }
                 }
             }
         }
@@ -204,17 +204,25 @@ class PrayerViewModel(private val context: Context) : ViewModel() {
     }
 
     private fun parseTimeStringToCalendar(timeStr: String, isTomorrow: Boolean): Calendar {
-        val parts = timeStr.split(":")
-        val h = parts[0].toInt()
-        val m = parts[1].toInt()
+        return try {
+            val parts = timeStr.split(":")
+            val h = parts[0].trim().toInt()
+            val m = parts[1].trim().toInt()
 
-        return Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, h)
-            set(Calendar.MINUTE, m)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-            if (isTomorrow) {
-                add(Calendar.DAY_OF_YEAR, 1)
+            Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, h)
+                set(Calendar.MINUTE, m)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+                if (isTomorrow) {
+                    add(Calendar.DAY_OF_YEAR, 1)
+                }
+            }
+        } catch (e: Exception) {
+            Calendar.getInstance().apply {
+                if (isTomorrow) {
+                    add(Calendar.DAY_OF_YEAR, 1)
+                }
             }
         }
     }

@@ -181,53 +181,8 @@ abstract class DownloadAssetsTask : DefaultTask() {
             }
         }
         
-        val targetFonts = fontDir.get().asFile
-        if (!targetFonts.exists()) {
-            targetFonts.mkdirs()
-        }
-        val fonts = mapOf(
-            "cinzel_regular.ttf" to "https://raw.githubusercontent.com/google/fonts/main/ofl/cinzel/static/Cinzel-Regular.ttf",
-            "cinzel_bold.ttf" to "https://raw.githubusercontent.com/google/fonts/main/ofl/cinzel/static/Cinzel-Bold.ttf",
-            "nunito_light.ttf" to "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/static/Nunito-Light.ttf",
-            "nunito_regular.ttf" to "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/static/Nunito-Regular.ttf",
-            "nunito_semibold.ttf" to "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/static/Nunito-SemiBold.ttf",
-            "nunito_bold.ttf" to "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/static/Nunito-Bold.ttf"
-        )
-        for ((name, urlStr) in fonts) {
-            val fontFile = File(targetFonts, name)
-            if (!fontFile.exists() || fontFile.length() < 100) {
-                try {
-                    println("Downloading font $name...")
-                    val connection = URL(urlStr).openConnection()
-                    connection.setRequestProperty("User-Agent", "Mozilla/5.0")
-                    connection.connectTimeout = 8000
-                    connection.readTimeout = 8000
-                    connection.getInputStream().use { input ->
-                        fontFile.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-                    println("Downloaded font $name successfully.")
-                } catch (e: Exception) {
-                    println("Failed to download font $name: ${e.message}. Using backup URL...")
-                    try {
-                        val backupUrl = urlStr.replace("static/", "")
-                        val connection = URL(backupUrl).openConnection()
-                        connection.setRequestProperty("User-Agent", "Mozilla/5.0")
-                        connection.connectTimeout = 8000
-                        connection.readTimeout = 8000
-                        connection.getInputStream().use { input ->
-                            fontFile.outputStream().use { output ->
-                                input.copyTo(output)
-                            }
-                        }
-                        println("Downloaded font $name successfully from backup.")
-                    } catch (e2: Exception) {
-                        println("Backup URL failed too: ${e2.message}")
-                    }
-                }
-            }
-        }
+        // Fonts are now handled via robust native System Font Families (Serif and SansSerif)
+        // to prevent any 503 network-related startup crashes on corrupt font files.
     }
 }
 

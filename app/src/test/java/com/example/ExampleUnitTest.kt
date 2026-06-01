@@ -1,4 +1,4 @@
-package com.example
+package id.ideahousetech.prayertime_qibla
 
 import org.junit.Assert.*
 import org.junit.Test
