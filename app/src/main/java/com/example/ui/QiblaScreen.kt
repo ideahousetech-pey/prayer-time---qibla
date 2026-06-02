@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.CompassCalibration
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -50,6 +51,15 @@ fun QiblaScreen(
     val azimuth by qiblaService.azimuthFlow.collectAsState()
     val userLocation by locationViewModel.userLocation.collectAsState()
     val sensorAccuracy by qiblaService.sensorAccuracy.collectAsState()
+
+    var hasCalibratedOnce by remember { mutableStateOf(false) }
+    var dismissBanner by remember { mutableStateOf(false) }
+
+    LaunchedEffect(sensorAccuracy) {
+        if (sensorAccuracy >= 2) {
+            hasCalibratedOnce = true
+        }
+    }
 
     DisposableEffect(Unit) {
         qiblaService.startListening()
@@ -159,7 +169,7 @@ fun QiblaScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             // Calibration warning banner
-            if (sensorAccuracy < 2) {
+            if (sensorAccuracy < 2 && !hasCalibratedOnce && !dismissBanner) {
                 Card(
                     colors = CardDefaults.cardColors(containerColor = WarningAmber.copy(alpha = 0.15f)),
                     border = androidx.compose.foundation.BorderStroke(1.dp, WarningAmber),
@@ -179,7 +189,7 @@ fun QiblaScreen(
                             modifier = Modifier.size(24.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 text = "Akurasi Kompas Rendah",
                                 color = TextPrimary,
@@ -191,6 +201,17 @@ fun QiblaScreen(
                                 color = TextSecondary,
                                 fontSize = 11.sp,
                                 lineHeight = 15.sp
+                            )
+                        }
+                        IconButton(
+                            onClick = { dismissBanner = true },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Tutup",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     }

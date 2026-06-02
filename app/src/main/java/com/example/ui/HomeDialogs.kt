@@ -665,6 +665,7 @@ fun SettingsDialog(
                                     )
                                     .clickable {
                                         prefs.edit().putString("app_theme_mode", modeKey).apply()
+                                        id.ideahousetech.prayertime_qibla.ui.theme.AppThemeState.currentThemeMode.value = modeKey
                                         appThemeMode = modeKey
                                     },
                                 contentAlignment = Alignment.Center

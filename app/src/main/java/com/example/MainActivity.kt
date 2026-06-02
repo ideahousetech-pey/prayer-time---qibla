@@ -89,26 +89,23 @@ class MainActivity : ComponentActivity() {
             val context = LocalContext.current
             val prefs = remember { id.ideahousetech.prayertime_qibla.utils.SecurePrefs.get(context) }
             
-            // Reactive theme tracking
-            var themeMode by remember { mutableStateOf(prefs.getString("app_theme_mode", "dark") ?: "dark") }
-            
-            androidx.compose.runtime.DisposableEffect(prefs) {
-                val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPrefs, key ->
-                    if (key == "app_theme_mode") {
-                        themeMode = sharedPrefs.getString("app_theme_mode", "dark") ?: "dark"
-                    }
-                }
-                prefs.registerOnSharedPreferenceChangeListener(listener)
-                onDispose {
-                    prefs.unregisterOnSharedPreferenceChangeListener(listener)
-                }
+            // Initialize global state on start
+            LaunchedEffect(Unit) {
+                id.ideahousetech.prayertime_qibla.ui.theme.AppThemeState.currentThemeMode.value = 
+                    prefs.getString("app_theme_mode", "dark") ?: "dark"
             }
+            
+            // Reactive theme tracking from our central singleton
+            val themeMode = id.ideahousetech.prayertime_qibla.ui.theme.AppThemeState.currentThemeMode.value
 
             // Inisialisasi ViewModel secara mandiri
             val locationViewModel = remember { LocationViewModel(context.applicationContext) }
             val prayerViewModel = remember { PrayerViewModel(context.applicationContext) }
 
             var showSplash by remember { mutableStateOf(true) }
+            var showOnboarding by remember {
+                mutableStateOf(!prefs.getBoolean("is_onboarding_completed", false))
+            }
 
             LaunchedEffect(Unit) {
                 kotlinx.coroutines.delay(2500)
@@ -118,6 +115,13 @@ class MainActivity : ComponentActivity() {
             MyApplicationTheme(themeMode = themeMode) {
                 if (showSplash) {
                     SplashScreen()
+                } else if (showOnboarding) {
+                    id.ideahousetech.prayertime_qibla.ui.OnboardingScreen(
+                        onCompleted = {
+                            prefs.edit().putBoolean("is_onboarding_completed", true).apply()
+                            showOnboarding = false
+                        }
+                    )
                 } else {
                     MainLayout(
                         locationViewModel = locationViewModel,

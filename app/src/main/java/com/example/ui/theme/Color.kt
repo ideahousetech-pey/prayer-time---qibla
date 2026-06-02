@@ -1,6 +1,7 @@
 package id.ideahousetech.prayertime_qibla.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.mutableStateOf
 
 /**
  * ==========================================
@@ -18,6 +19,8 @@ import androidx.compose.ui.graphics.Color
 object AppThemeState {
     @Volatile
     var isDarkTheme: Boolean = true
+    
+    val currentThemeMode = mutableStateOf("dark")
 }
 
 // --- STATIC UNDERLYING TOKENS FOR SOLID CONSTANT REFERENCE
