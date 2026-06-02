@@ -87,7 +87,23 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val context = LocalContext.current
+            val prefs = remember { id.ideahousetech.prayertime_qibla.utils.SecurePrefs.get(context) }
             
+            // Reactive theme tracking
+            var themeMode by remember { mutableStateOf(prefs.getString("app_theme_mode", "dark") ?: "dark") }
+            
+            androidx.compose.runtime.DisposableEffect(prefs) {
+                val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { sharedPrefs, key ->
+                    if (key == "app_theme_mode") {
+                        themeMode = sharedPrefs.getString("app_theme_mode", "dark") ?: "dark"
+                    }
+                }
+                prefs.registerOnSharedPreferenceChangeListener(listener)
+                onDispose {
+                    prefs.unregisterOnSharedPreferenceChangeListener(listener)
+                }
+            }
+
             // Inisialisasi ViewModel secara mandiri
             val locationViewModel = remember { LocationViewModel(context.applicationContext) }
             val prayerViewModel = remember { PrayerViewModel(context.applicationContext) }
@@ -99,7 +115,7 @@ class MainActivity : ComponentActivity() {
                 showSplash = false
             }
 
-            MyApplicationTheme {
+            MyApplicationTheme(themeMode = themeMode) {
                 if (showSplash) {
                     SplashScreen()
                 } else {

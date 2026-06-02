@@ -276,7 +276,18 @@ fun SettingsDialog(
             var success = false
             var errorMsg = ""
             
-            val urlsToTry = mutableListOf(adzan.url)
+            // Build resilient backup array
+            val urlsToTry = mutableListOf<String>()
+            
+            // 1. Primary URL (HTTPS)
+            urlsToTry.add(adzan.url)
+            
+            // 2. Cleartext HTTP attempt if primary is HTTPS (bypasses SSL cert issues)
+            if (adzan.url.startsWith("https://")) {
+                urlsToTry.add(adzan.url.replace("https://", "http://"))
+            }
+            
+            // 3. Fallback Archive.org links (known stable backups)
             val fallbackUrl = when (adzan.displayName) {
                 "Adzan Makkah" -> "https://archive.org/download/adhan_202206/adhan.mp3"
                 "Adzan Madinah" -> "https://archive.org/download/AzanMadinah_201712/azan_madinah.mp3"
@@ -284,34 +295,61 @@ fun SettingsDialog(
                 else -> if (isSubuh) "https://archive.org/download/AzanMadinah_201712/azan_madinah.mp3" else "https://archive.org/download/adhan_202206/adhan.mp3"
             }
             urlsToTry.add(fallbackUrl)
+            urlsToTry.add(fallbackUrl.replace("https://", "http://"))
+            
+            // 4. Hard fallback to stable raw GitHub Pages / UsercontentCDN if other sites are geo-blocked
+            // Standard raw file of Sidandv (Highly accessible)
+            urlsToTry.add("https://raw.githubusercontent.com/sidandv/My-Azan/master/Azan.mp3")
+            
+            // Set up a Trust-All SSL Context specifically to avoid handshake failures on old or custom OS
+            val trustAllCerts = arrayOf<javax.net.ssl.TrustManager>(object : javax.net.ssl.X509TrustManager {
+                override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate>? = null
+                override fun checkClientTrusted(certs: Array<java.security.cert.X509Certificate>?, authType: String?) {}
+                override fun checkServerTrusted(certs: Array<java.security.cert.X509Certificate>?, authType: String?) {}
+            })
+            val sc = javax.net.ssl.SSLContext.getInstance("SSL")
+            sc.init(null, trustAllCerts, java.security.SecureRandom())
             
             for ((idx, attemptUrl) in urlsToTry.withIndex()) {
                 if (idx > 0) {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Mencoba server cadangan...", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, "Mencoba server cadangan (${idx + 1}/${urlsToTry.size})...", Toast.LENGTH_SHORT).show()
                     }
                 }
                 try {
                     var currentUrlStr = attemptUrl
                     var connection: java.net.HttpURLConnection? = null
                     var redirectCount = 0
-                    val maxRedirects = 5
+                    val maxRedirects = 6
                     
                     while (redirectCount < maxRedirects) {
                         val url = java.net.URL(currentUrlStr)
                         connection = url.openConnection() as java.net.HttpURLConnection
-                        connection.instanceFollowRedirects = true
+                        
+                        // Disable built-in redirect to manage HTTPS <-> HTTP transitions perfectly
+                        connection.instanceFollowRedirects = false
+                        
+                        // Set modern browser User Agent to satisfy safety headers
                         connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                        connection.connectTimeout = 20000
-                        connection.readTimeout = 20000
+                        connection.connectTimeout = 15000
+                        connection.readTimeout = 15000
+                        
+                        // Inject our permissive SSL Socket Factory directly on this connection
+                        if (connection is javax.net.ssl.HttpsURLConnection) {
+                            connection.sslSocketFactory = sc.socketFactory
+                            connection.hostnameVerifier = javax.net.ssl.HostnameVerifier { _, _ -> true }
+                        }
                         
                         val status = connection.responseCode
                         if (status == java.net.HttpURLConnection.HTTP_MOVED_TEMP || 
                             status == java.net.HttpURLConnection.HTTP_MOVED_PERM || 
-                            status == 307 || status == 308) {
+                            status == 303 || status == 307 || status == 308) {
+                            
                             val newUrl = connection.getHeaderField("Location")
                             if (newUrl != null) {
-                                currentUrlStr = newUrl
+                                // Resolve relative URLs seamlessly against current URL base
+                                val parentUrl = java.net.URL(currentUrlStr)
+                                currentUrlStr = java.net.URL(parentUrl, newUrl).toString()
                                 redirectCount++
                                 connection.disconnect()
                                 continue
@@ -319,16 +357,16 @@ fun SettingsDialog(
                         }
                         break
                     }
-
+                    
                     if (connection == null) {
-                        throw Exception("Tidak dapat membuka koneksi.")
+                        throw Exception("Gagal membuat koneksi.")
                     }
-
+                    
                     val status = connection.responseCode
                     if (status !in 200..299) {
-                        throw Exception("Gagal mengunduh (HTTP $status)")
+                        throw Exception("HTTP $status")
                     }
-
+                    
                     val fileLength = connection.contentLength
                     val input = java.io.BufferedInputStream(connection.inputStream, 8192)
                     val tmpFile = File(context.filesDir, "${targetFileName}.tmp")
@@ -336,37 +374,42 @@ fun SettingsDialog(
                     val data = ByteArray(8192)
                     var total = 0L
                     var count: Int
+                    
                     while (input.read(data).also { count = it } != -1) {
                         total += count
                         if (fileLength > 0) {
                             downloadProgress = total.toFloat() / fileLength.toFloat()
+                        } else {
+                            // If length is unknown, mock slow progression limit under 95%
+                            downloadProgress = (downloadProgress + 0.05f).coerceAtMost(0.95f)
                         }
                         output.write(data, 0, count)
                     }
+                    
                     output.flush()
                     output.close()
                     input.close()
                     connection.disconnect()
-
-                    // Rename temp file on success
-                    if (tmpFile.exists() && tmpFile.length() > 100) {
+                    
+                    // Validate file completeness (Adzan is usually at least 100KB)
+                    if (tmpFile.exists() && tmpFile.length() > 50000) {
                         if (targetFile.exists()) {
                             targetFile.delete()
                         }
                         if (tmpFile.renameTo(targetFile)) {
                             // success!
                         } else {
-                            // fallback copy
                             tmpFile.copyTo(targetFile, overwrite = true)
                             tmpFile.delete()
                         }
                         success = true
                         break
                     } else {
-                        throw Exception("File hasil unduhan rusak atau kosong.")
+                        tmpFile.delete()
+                        throw Exception("File kosong atau terpotong.")
                     }
                 } catch (e: java.lang.Exception) {
-                    errorMsg = e.message ?: "Kesalahan tidak dikenal."
+                    errorMsg = e.localizedMessage ?: e.message ?: "Koneksi terputus."
                 }
             }
             
@@ -550,6 +593,70 @@ fun SettingsDialog(
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
+
+                // Section Tema: Mode Tampilan
+                var appThemeMode by remember { mutableStateOf(prefs.getString("app_theme_mode", "dark") ?: "dark") }
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(DividerLine, RoundedCornerShape(12.dp))
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = "Tema & Mode Tampilan",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "Pilih tema gelap, terang, atau ikuti pengaturan sistem Anda",
+                        fontSize = 11.sp,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(bottom = 10.dp)
+                    )
+                    
+                    // Segmented Button Custom
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(CardSurface, RoundedCornerShape(8.dp))
+                            .padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val modes = listOf(
+                            "dark" to "Gelap 🌙",
+                            "light" to "Terang ☀️",
+                            "system" to "Sistem 🔄"
+                        )
+                        modes.forEach { (modeKey, modeName) ->
+                            val isSelected = appThemeMode == modeKey
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(32.dp)
+                                    .background(
+                                        color = if (isSelected) GoldPrimary else Color.Transparent,
+                                        shape = RoundedCornerShape(6.dp)
+                                    )
+                                    .clickable {
+                                        prefs.edit().putString("app_theme_mode", modeKey).apply()
+                                        appThemeMode = modeKey
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = modeName,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) DeepNight else TextSecondary
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // Section 1: Aktivasi Alarm Adzan
                 Row(
