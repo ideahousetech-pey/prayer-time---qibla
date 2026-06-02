@@ -64,17 +64,40 @@ class NotificationService(private val context: Context) {
             val hasCustom = prefs.getString(prefKey, null) != null
 
             mediaPlayer = MediaPlayer().apply {
-                if (file.exists() && (hasCustom || file.length() > 30000)) { // Jika file asli yang valid ada atau kustom ada
-                    setDataSource(file.absolutePath)
-                } else {
-                    // Fallback ke ringtone default Alarm perangkat jika dummy file
-                    val notificationUri: Uri = Uri.parse("android.resource://" + context.packageName + "/raw/" + (if (isFajr) "adzan_fajr" else "adzan"))
+                var sourceSet = false
+                
+                // 1. Coba memutar file fisik lokal (kustom/salinan asset) jika ukurannya valid (>50KB)
+                if (file.exists() && file.length() > 50000) {
                     try {
-                        setDataSource(context, notificationUri)
+                        setDataSource(file.absolutePath)
+                        sourceSet = true
+                        Log.d("NotificationService", "Sukses menentukan sumber audio: file fisik $audioFileName")
                     } catch (e: Exception) {
-                        // Total fallback
+                        Log.e("NotificationService", "Gagal memutar file fisik lokal: ${e.message}")
+                    }
+                }
+                
+                // 2. Jika file lokal belum siap/tidak ada, buka langsung dari folder assets
+                if (!sourceSet) {
+                    try {
+                        context.assets.openFd(audioFileName).use { afd ->
+                            setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                            sourceSet = true
+                            Log.d("NotificationService", "Sukses menentukan sumber audio: aset langsung $audioFileName")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("NotificationService", "Gagal memutar langsung dari assets: ${e.message}")
+                    }
+                }
+                
+                // 3. Fallback terakhir jika semua metode di atas absen/gagal
+                if (!sourceSet) {
+                    try {
                         val defaultUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
                         setDataSource(context, defaultUri)
+                        Log.d("NotificationService", "Sukses menentukan sumber audio: ringtone default alarm")
+                    } catch (e: Exception) {
+                        Log.e("NotificationService", "Gagal memutar ringtone alarm bawaan: ${e.message}")
                     }
                 }
                 prepare()

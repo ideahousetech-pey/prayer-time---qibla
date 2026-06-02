@@ -451,28 +451,52 @@ fun SettingsDialog(
             player = null
 
             val file = File(context.filesDir, fileName)
-            if (file.exists() && file.length() > 100) {
-                player = MediaPlayer().apply {
-                    setDataSource(file.absolutePath)
-                    prepare()
-                    start()
-                    setOnCompletionListener {
-                        activePreview = null
-                    }
+            var sourceSet = false
+            val tempPlayer = MediaPlayer()
+            
+            // 1. Coba memutar file fisik local di filesDir terlebih dahulu (termasuk kustom atau salinan asset)
+            if (file.exists() && file.length() > 50000) {
+                try {
+                    tempPlayer.setDataSource(file.absolutePath)
+                    sourceSet = true
+                } catch (e: Exception) {
+                    // Lanjut ke tingkat berikutnya
                 }
+            }
+            
+            // 2. Jika file fisik belum siap/tidak ada, muat langsung dari assets
+            if (!sourceSet) {
+                try {
+                    context.assets.openFd(fileName).use { afd ->
+                        tempPlayer.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                        sourceSet = true
+                    }
+                } catch (e: Exception) {
+                    // Lanjut ke tingkat berikutnya
+                }
+            }
+            
+            // 3. Fallback ke ringtone default Alarm perangkat jika seluruh metode di atas gagal
+            if (!sourceSet) {
+                try {
+                    val defaultUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
+                    tempPlayer.setDataSource(context, defaultUri)
+                    sourceSet = true
+                } catch (e: Exception) {
+                    // Gagal total
+                }
+            }
+            
+            if (sourceSet) {
+                tempPlayer.prepare()
+                tempPlayer.start()
+                tempPlayer.setOnCompletionListener {
+                    activePreview = null
+                }
+                player = tempPlayer
                 activePreview = type
             } else {
-                Toast.makeText(context, "File suara belum diatur, memutar nada bawaan...", Toast.LENGTH_SHORT).show()
-                val defaultUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
-                player = MediaPlayer().apply {
-                    setDataSource(context, defaultUri)
-                    prepare()
-                    start()
-                    setOnCompletionListener {
-                        activePreview = null
-                    }
-                }
-                activePreview = type
+                Toast.makeText(context, "Gagal memutar suara adzan.", Toast.LENGTH_SHORT).show()
             }
         } catch (e: Exception) {
             Toast.makeText(context, "Gagal memutar suara: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -1166,193 +1190,7 @@ fun SettingsDialog(
                     }
                 }
 
-                // ------------------ UNDUH ADZAN DARI INTERNET SINKRONISASI ------------------
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "UNDUH ADZAN DARI INTERNET",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = GoldPrimary,
-                    letterSpacing = 1.sp,
-                    modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
-                )
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(1.dp, DividerLine, RoundedCornerShape(16.dp)),
-                    colors = CardDefaults.cardColors(containerColor = CardElevated.copy(alpha = 0.2f)),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        if (isDownloading) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 12.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                CircularProgressIndicator(
-                                    progress = downloadProgress,
-                                    color = GoldPrimary,
-                                    trackColor = DividerLine,
-                                    modifier = Modifier.size(36.dp)
-                                )
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Text(
-                                    text = "Mengunduh $downloadingName...",
-                                    fontSize = 13.sp,
-                                    color = TextPrimary,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                Text(
-                                    text = "${(downloadProgress * 100).toInt()}% selesai",
-                                    fontSize = 11.sp,
-                                    color = TealAccent,
-                                    modifier = Modifier.padding(top = 2.dp)
-                                )
-                            }
-                        } else {
-                            Text(
-                                text = "Koleksi Adzan Terpopuler Dunia (Unduh langsung):",
-                                fontSize = 12.sp,
-                                color = TextPrimary,
-                                fontWeight = FontWeight.SemiBold,
-                                modifier = Modifier.padding(bottom = 8.dp, start = 2.dp)
-                            )
-
-                            onlineAdzans.forEach { adzan ->
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 6.dp)
-                                        .background(DividerLine.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
-                                        .padding(10.dp)
-                                ) {
-                                    Text(
-                                        text = adzan.displayName,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = GoldPrimary
-                                    )
-                                    Text(
-                                        text = adzan.desc,
-                                        fontSize = 11.sp,
-                                        color = TextSecondary,
-                                        modifier = Modifier.padding(bottom = 4.dp)
-                                    )
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Button(
-                                            onClick = { downloadAdzanOnline(adzan, isSubuh = false) },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = GoldPrimary,
-                                                contentColor = DeepNight
-                                            ),
-                                            shape = RoundedCornerShape(8.dp),
-                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .height(32.dp)
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Download,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(12.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Pasang Umum", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                            }
-                                        }
-
-                                        Button(
-                                            onClick = { downloadAdzanOnline(adzan, isSubuh = true) },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = TealAccent,
-                                                contentColor = DeepNight
-                                            ),
-                                            shape = RoundedCornerShape(8.dp),
-                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .height(32.dp)
-                                        ) {
-                                            Row(
-                                                verticalAlignment = Alignment.CenterVertically,
-                                                horizontalArrangement = Arrangement.Center
-                                            ) {
-                                                Icon(
-                                                    imageVector = Icons.Default.Download,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(12.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(4.dp))
-                                                Text("Pasang Subuh", fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 2026 ISLAMIC LUXURY DESIGN SHOWCASE TRIGGER
-                Spacer(modifier = Modifier.height(16.dp))
-
-                var showDesignSystemShowcase by remember { mutableStateOf(false) }
-
-                if (showDesignSystemShowcase) {
-                    Dialog(onDismissRequest = { showDesignSystemShowcase = false }) {
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 620.dp)
-                                .border(1.dp, GoldPrimary, RoundedCornerShape(24.dp)),
-                            shape = RoundedCornerShape(24.dp),
-                            colors = CardDefaults.cardColors(containerColor = DeepNight)
-                        ) {
-                            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                                id.ideahousetech.prayertime_qibla.ui.components.IslamicLuxuryShowcase(
-                                    onDismiss = { showDesignSystemShowcase = false }
-                                )
-                            }
-                        }
-                    }
-                }
-
-                Button(
-                    onClick = { showDesignSystemShowcase = true },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = TealAccent.copy(alpha = 0.12f),
-                        contentColor = TealAccent
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, TealAccent.copy(alpha = 0.4f)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Star,
-                        contentDescription = "Design System",
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Lihat Design System Islamic Luxury 2026",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // INFO APLIKASI
                 Card(
