@@ -62,12 +62,9 @@ fun HomeScreen(
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(listOf(DeepNight, MidnightLayer))
-            )
+    id.ideahousetech.prayertime_qibla.ui.components.DynamicPrayerBackground(
+        prayerName = nextPrayerName,
+        modifier = modifier.fillMaxSize()
     ) {
         // Elegant Repeating Islamic Girih Star (8-Point) Pattern
         Canvas(modifier = Modifier.fillMaxSize()) {
