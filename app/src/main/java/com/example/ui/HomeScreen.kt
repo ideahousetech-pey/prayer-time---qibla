@@ -4,12 +4,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -24,6 +19,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import id.ideahousetech.prayertime_qibla.AppScreen
@@ -73,19 +69,42 @@ fun HomeScreen(
                 Brush.verticalGradient(listOf(DeepNight, MidnightLayer))
             )
     ) {
-        // Ornamen geometri Islam di latar belakang (sangat subtle)
+        // Elegant Repeating Islamic Girih Star (8-Point) Pattern
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val step = 80.dp.toPx()
+            val step = 100.dp.toPx()
+            val starSize = 26.dp.toPx()
             var y = 0f
-            while (y < size.height) {
+            while (y < size.height + step) {
                 var x = 0f
-                while (x < size.width) {
+                while (x < size.width + step) {
+                    val center = Offset(x, y)
+                    
+                    // Outer subtle gold coordinate circle
                     drawCircle(
-                        color  = Color(0x06D4AF37),
-                        radius = 30f,
-                        center = Offset(x, y),
-                        style  = Stroke(width = 0.5f)
+                        color = GoldPrimary.copy(alpha = 0.02f),
+                        radius = starSize * 1.3f,
+                        center = center,
+                        style = Stroke(width = 0.8f)
                     )
+                    
+                    // First Square
+                    drawRect(
+                        color = GoldPrimary.copy(alpha = 0.03f),
+                        topLeft = Offset(center.x - starSize / 2, center.y - starSize / 2),
+                        size = androidx.compose.ui.geometry.Size(starSize, starSize),
+                        style = Stroke(width = 0.8f)
+                    )
+                    
+                    // Second Square - Rotated 45 degrees to form the 8-pointed star
+                    rotate(degrees = 45f, pivot = center) {
+                        drawRect(
+                            color = GoldPrimary.copy(alpha = 0.03f),
+                            topLeft = Offset(center.x - starSize / 2, center.y - starSize / 2),
+                            size = androidx.compose.ui.geometry.Size(starSize, starSize),
+                            style = Stroke(width = 0.8f)
+                        )
+                    }
+                    
                     x += step
                 }
                 y += step
@@ -99,10 +118,11 @@ fun HomeScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.statusBars)
                     .verticalScroll(rememberScrollState())
                     .padding(bottom = 100.dp)
             ) {
-                Spacer(Modifier.height(52.dp))
+                Spacer(Modifier.height(16.dp))
 
                 // 1. Header (Refresh GPS dipindahkan ke dalam dialog pengaturan)
                 HomeHeader(

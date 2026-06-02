@@ -1,13 +1,17 @@
 package id.ideahousetech.prayertime_qibla.service
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.pm.PackageManager
 import android.location.Geocoder
 import android.location.Location
 import android.os.Build
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.Locale
 import kotlin.coroutines.resume
@@ -27,27 +31,48 @@ class LocationService(private val context: Context) {
      */
     @SuppressLint("MissingPermission")
     suspend fun getCurrentLocation(): Location? = suspendCancellableCoroutine { continuation ->
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            Log.w("LocationService", "Izin lokasi belum diberikan, membatalkan request GPS.")
+            if (continuation.isActive) continuation.resume(null)
+            return@suspendCancellableCoroutine
+        }
+
+        val cancellationTokenSource = CancellationTokenSource()
+        continuation.invokeOnCancellation {
+            try {
+                cancellationTokenSource.cancel()
+            } catch (e: Exception) {
+                Log.e("LocationService", "Gagal membatalkan CancellationTokenSource", e)
+            }
+        }
+
         try {
             fusedLocationClient.getCurrentLocation(
                 Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-                null
+                cancellationTokenSource.token
             ).addOnCompleteListener { task ->
                 if (task.isSuccessful && task.result != null) {
                     if (continuation.isActive) continuation.resume(task.result)
                 } else {
-                    fusedLocationClient.lastLocation.addOnCompleteListener { lastTask ->
-                        if (continuation.isActive) {
-                            if (lastTask.isSuccessful && lastTask.result != null) {
-                                continuation.resume(lastTask.result)
-                            } else {
-                                continuation.resume(null)
+                    try {
+                        fusedLocationClient.lastLocation.addOnCompleteListener { lastTask ->
+                            if (continuation.isActive) {
+                                if (lastTask.isSuccessful && lastTask.result != null) {
+                                    continuation.resume(lastTask.result)
+                                } else {
+                                    continuation.resume(null)
+                                }
                             }
                         }
+                    } catch (e: Exception) {
+                        Log.e("LocationService", "Gagal mengambil lastLocation: ${e.message}")
+                        if (continuation.isActive) continuation.resume(null)
                     }
                 }
             }
         } catch (e: Exception) {
-            Log.e("LocationService", "Gagal mengambil lokasi GPS: ${e.message}")
+            Log.e("LocationService", "Gagal mengambil lokasi GPS langsung: ${e.message}")
             if (continuation.isActive) continuation.resume(null)
         }
     }

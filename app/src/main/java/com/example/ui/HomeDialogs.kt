@@ -270,82 +270,107 @@ fun SettingsDialog(
         downloadProgress = 0f
         downloadingName = adzan.displayName + (if (isSubuh) " (Subuh)" else " (Umum)")
         scope.launch(Dispatchers.IO) {
-            try {
-                val targetFileName = if (isSubuh) "adzan_fajr.mp3" else "adzan.mp3"
-                val targetFile = File(context.filesDir, targetFileName)
-
-                var currentUrlStr = adzan.url
-                var connection: java.net.HttpURLConnection? = null
-                var redirectCount = 0
-                val maxRedirects = 5
-                
-                while (redirectCount < maxRedirects) {
-                    val url = java.net.URL(currentUrlStr)
-                    connection = url.openConnection() as java.net.HttpURLConnection
-                    connection.instanceFollowRedirects = true
-                    connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                    connection.connectTimeout = 20000
-                    connection.readTimeout = 20000
+            val targetFileName = if (isSubuh) "adzan_fajr.mp3" else "adzan.mp3"
+            val targetFile = File(context.filesDir, targetFileName)
+            
+            var success = false
+            var errorMsg = ""
+            
+            val urlsToTry = mutableListOf(adzan.url)
+            val fallbackUrl = when (adzan.displayName) {
+                "Adzan Makkah" -> "https://archive.org/download/adhan_202206/adhan.mp3"
+                "Adzan Madinah" -> "https://archive.org/download/AzanMadinah_201712/azan_madinah.mp3"
+                "Adzan Makkah Subuh" -> "https://archive.org/download/AzanMadinah_201712/azan_madinah.mp3"
+                else -> if (isSubuh) "https://archive.org/download/AzanMadinah_201712/azan_madinah.mp3" else "https://archive.org/download/adhan_202206/adhan.mp3"
+            }
+            urlsToTry.add(fallbackUrl)
+            
+            for ((idx, attemptUrl) in urlsToTry.withIndex()) {
+                if (idx > 0) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(context, "Mencoba server cadangan...", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                try {
+                    var currentUrlStr = attemptUrl
+                    var connection: java.net.HttpURLConnection? = null
+                    var redirectCount = 0
+                    val maxRedirects = 5
                     
-                    val status = connection.responseCode
-                    if (status == java.net.HttpURLConnection.HTTP_MOVED_TEMP || 
-                        status == java.net.HttpURLConnection.HTTP_MOVED_PERM || 
-                        status == 307 || status == 308) {
-                        val newUrl = connection.getHeaderField("Location")
-                        if (newUrl != null) {
-                            currentUrlStr = newUrl
-                            redirectCount++
-                            connection.disconnect()
-                            continue
+                    while (redirectCount < maxRedirects) {
+                        val url = java.net.URL(currentUrlStr)
+                        connection = url.openConnection() as java.net.HttpURLConnection
+                        connection.instanceFollowRedirects = true
+                        connection.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                        connection.connectTimeout = 20000
+                        connection.readTimeout = 20000
+                        
+                        val status = connection.responseCode
+                        if (status == java.net.HttpURLConnection.HTTP_MOVED_TEMP || 
+                            status == java.net.HttpURLConnection.HTTP_MOVED_PERM || 
+                            status == 307 || status == 308) {
+                            val newUrl = connection.getHeaderField("Location")
+                            if (newUrl != null) {
+                                currentUrlStr = newUrl
+                                redirectCount++
+                                connection.disconnect()
+                                continue
+                            }
                         }
+                        break
                     }
-                    break
-                }
 
-                if (connection == null) {
-                    throw Exception("Tidak dapat membuka koneksi.")
-                }
-
-                val status = connection.responseCode
-                if (status !in 200..299) {
-                    throw Exception("Gagal mengunduh (HTTP $status)")
-                }
-
-                val fileLength = connection.contentLength
-                val input = java.io.BufferedInputStream(connection.inputStream, 8192)
-                val tmpFile = File(context.filesDir, "${targetFileName}.tmp")
-                val output = FileOutputStream(tmpFile)
-                val data = ByteArray(8192)
-                var total = 0L
-                var count: Int
-                while (input.read(data).also { count = it } != -1) {
-                    total += count
-                    if (fileLength > 0) {
-                        downloadProgress = total.toFloat() / fileLength.toFloat()
+                    if (connection == null) {
+                        throw Exception("Tidak dapat membuka koneksi.")
                     }
-                    output.write(data, 0, count)
-                }
-                output.flush()
-                output.close()
-                input.close()
-                connection.disconnect()
 
-                // Rename temp file on success
-                if (tmpFile.exists() && tmpFile.length() > 100) {
-                    if (targetFile.exists()) {
-                        targetFile.delete()
+                    val status = connection.responseCode
+                    if (status !in 200..299) {
+                        throw Exception("Gagal mengunduh (HTTP $status)")
                     }
-                    if (tmpFile.renameTo(targetFile)) {
-                        // success!
+
+                    val fileLength = connection.contentLength
+                    val input = java.io.BufferedInputStream(connection.inputStream, 8192)
+                    val tmpFile = File(context.filesDir, "${targetFileName}.tmp")
+                    val output = FileOutputStream(tmpFile)
+                    val data = ByteArray(8192)
+                    var total = 0L
+                    var count: Int
+                    while (input.read(data).also { count = it } != -1) {
+                        total += count
+                        if (fileLength > 0) {
+                            downloadProgress = total.toFloat() / fileLength.toFloat()
+                        }
+                        output.write(data, 0, count)
+                    }
+                    output.flush()
+                    output.close()
+                    input.close()
+                    connection.disconnect()
+
+                    // Rename temp file on success
+                    if (tmpFile.exists() && tmpFile.length() > 100) {
+                        if (targetFile.exists()) {
+                            targetFile.delete()
+                        }
+                        if (tmpFile.renameTo(targetFile)) {
+                            // success!
+                        } else {
+                            // fallback copy
+                            tmpFile.copyTo(targetFile, overwrite = true)
+                            tmpFile.delete()
+                        }
+                        success = true
+                        break
                     } else {
-                        // fallback copy
-                        tmpFile.copyTo(targetFile, overwrite = true)
-                        tmpFile.delete()
+                        throw Exception("File hasil unduhan rusak atau kosong.")
                     }
-                } else {
-                    throw Exception("File hasil unduhan rusak atau kosong.")
+                } catch (e: java.lang.Exception) {
+                    errorMsg = e.message ?: "Kesalahan tidak dikenal."
                 }
-
+            }
+            
+            if (success) {
                 withContext(Dispatchers.Main) {
                     val savedName = "${adzan.displayName} (Internet)"
                     if (isSubuh) {
@@ -358,10 +383,10 @@ fun SettingsDialog(
                     isDownloading = false
                     Toast.makeText(context, "Selesai mengunduh & menerapkan: $savedName", Toast.LENGTH_LONG).show()
                 }
-            } catch (e: Exception) {
+            } else {
                 withContext(Dispatchers.Main) {
                     isDownloading = false
-                    Toast.makeText(context, "Gagal mengunduh adzan: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, "Gagal mengunduh adzan: $errorMsg", Toast.LENGTH_LONG).show()
                 }
             }
         }
