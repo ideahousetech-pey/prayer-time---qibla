@@ -220,7 +220,7 @@ fun DoaItemCard(
                 text = doa.arabic,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Normal,
-                fontFamily = FontFamily.Serif,
+                fontFamily = AmiriQuranFont,
                 lineHeight = 40.sp,
                 textAlign = TextAlign.End,
                 modifier = Modifier.fillMaxWidth(),

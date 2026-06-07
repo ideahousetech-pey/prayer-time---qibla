@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
@@ -33,6 +34,7 @@ import androidx.compose.material.icons.filled.CompassCalibration
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -101,6 +103,7 @@ class MainActivity : ComponentActivity() {
             // Inisialisasi ViewModel secara mandiri
             val locationViewModel = remember { LocationViewModel(context.applicationContext) }
             val prayerViewModel = remember { PrayerViewModel(context.applicationContext) }
+            val trackerViewModel = remember { id.ideahousetech.prayertime_qibla.viewmodel.PrayerTrackerViewModel(context.applicationContext) }
 
             var showSplash by remember { mutableStateOf(true) }
             var showOnboarding by remember {
@@ -125,7 +128,8 @@ class MainActivity : ComponentActivity() {
                 } else {
                     MainLayout(
                         locationViewModel = locationViewModel,
-                        prayerViewModel = prayerViewModel
+                        prayerViewModel = prayerViewModel,
+                        trackerViewModel = trackerViewModel
                     )
                 }
             }
@@ -144,16 +148,42 @@ enum class AppScreen(val title: String, val icon: ImageVector) {
     DOA("Doa-Doa", Icons.Default.MenuBook),
     JADWAL_HARIAN("Jadwal Harian", Icons.Default.Schedule),
     QURAN("Al-Qur'an", Icons.Default.MenuBook),
-    TASBIH("Tasbih", Icons.Default.Cached)
+    TASBIH("Tasbih", Icons.Default.Cached),
+    TRACKER("Pelacak Sholat", Icons.Default.Check)
 }
 
 @Composable
 fun MainLayout(
     locationViewModel: LocationViewModel,
-    prayerViewModel: PrayerViewModel
+    prayerViewModel: PrayerViewModel,
+    trackerViewModel: id.ideahousetech.prayertime_qibla.viewmodel.PrayerTrackerViewModel
 ) {
     val context = LocalContext.current
     var currentScreen by remember { mutableStateOf(AppScreen.SHOLAT) }
+    var screenHistory by remember { mutableStateOf(listOf<AppScreen>()) }
+
+    fun navigateTo(screen: AppScreen) {
+        if (currentScreen != screen) {
+            screenHistory = screenHistory + currentScreen
+            currentScreen = screen
+        }
+    }
+
+    fun navigateBack() {
+        if (screenHistory.isNotEmpty()) {
+            val prev = screenHistory.last()
+            screenHistory = screenHistory.dropLast(1)
+            currentScreen = prev
+        } else {
+            currentScreen = AppScreen.SHOLAT
+        }
+    }
+
+    // Intersepsi tombol kembali (back gesture/physical back button)
+    BackHandler(enabled = currentScreen != AppScreen.SHOLAT) {
+        navigateBack()
+    }
+
     val userLocation by locationViewModel.userLocation.collectAsState()
 
     // 0. Mulai AdzanForegroundService jika alarm diset aktif hulu-hilir
@@ -270,36 +300,41 @@ fun MainLayout(
                     AppScreen.SHOLAT -> HomeScreen(
                         prayerViewModel = prayerViewModel,
                         locationViewModel = locationViewModel,
+                        trackerViewModel = trackerViewModel,
                         onNavigateToScreen = { screen ->
-                            currentScreen = screen
+                            navigateTo(screen)
                         }
                     )
                     AppScreen.KIBLAT -> QiblaScreen(
                         locationViewModel = locationViewModel,
-                        onBackClick = { currentScreen = AppScreen.SHOLAT }
+                        onBackClick = { navigateBack() }
                     )
                     AppScreen.KALENDER -> CalendarScreen(
-                        onBackClick = { currentScreen = AppScreen.SHOLAT }
+                        onBackClick = { navigateBack() }
                     )
                     AppScreen.JADWAL -> MonthlyScheduleScreen(
                         prayerViewModel = prayerViewModel,
                         locationViewModel = locationViewModel,
-                        onBackClick = { currentScreen = AppScreen.SHOLAT }
+                        onBackClick = { navigateBack() }
                     )
                     AppScreen.DOA -> DoaScreen(
-                        onBackClick = { currentScreen = AppScreen.SHOLAT }
+                        onBackClick = { navigateBack() }
                     )
                     AppScreen.JADWAL_HARIAN -> DailyScheduleScreen(
                         prayerViewModel = prayerViewModel,
                         locationViewModel = locationViewModel,
-                        onBackClick = { currentScreen = AppScreen.SHOLAT },
-                        onNavigateToMonthly = { currentScreen = AppScreen.JADWAL }
+                        onBackClick = { navigateBack() },
+                        onNavigateToMonthly = { navigateTo(AppScreen.JADWAL) }
                     )
                     AppScreen.QURAN -> QuranScreen(
-                        onBackClick = { currentScreen = AppScreen.SHOLAT }
+                        onBackClick = { navigateBack() }
                     )
                     AppScreen.TASBIH -> TasbihScreen(
-                        onBackClick = { currentScreen = AppScreen.SHOLAT }
+                        onBackClick = { navigateBack() }
+                    )
+                    AppScreen.TRACKER -> id.ideahousetech.prayertime_qibla.ui.PrayerTrackerScreen(
+                        trackerViewModel = trackerViewModel,
+                        onBackClick = { navigateBack() }
                     )
                 }
             }

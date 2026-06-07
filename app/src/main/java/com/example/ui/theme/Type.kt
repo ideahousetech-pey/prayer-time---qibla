@@ -10,24 +10,19 @@ import id.ideahousetech.prayertime_qibla.R
 
 /**
  * ==========================================
- * DESIGN TOKENS: TYPOGRAPHY PAIRINGS
+ * HIGH-PRECISION DESIGN TOKENS: TYPOGRAPHY
  * ==========================================
  *
- * Font 1: Cinzel - Classic Roman/Architectural Serifs for Titles (Islamic Royalty aesthetic)
- * Font 2: Nunito - Modern, organic, rounded sans-serif for high continuous legibility
+ * Font 1: Cinzel - Classic Roman Serif for Display/Titles (Islamic Luxury Royalty)
+ * Font 2: Nunito - Modern Rounded Sans-Serif for body readability
+ * Font 3: Amiri - Classic Naskh Quranic typeface for Arabic Scriptures
  */
 
-val CinzelFont = FontFamily(
-    Font(resId = R.font.cinzel_regular, weight = FontWeight.Normal),
-    Font(resId = R.font.cinzel_bold, weight = FontWeight.Bold)
-)
+val CinzelFont = FontFamily.Serif
 
-val NunitoFont = FontFamily(
-    Font(resId = R.font.nunito_light, weight = FontWeight.Light),
-    Font(resId = R.font.nunito_regular, weight = FontWeight.Normal),
-    Font(resId = R.font.nunito_semibold, weight = FontWeight.SemiBold),
-    Font(resId = R.font.nunito_bold, weight = FontWeight.Bold)
-)
+val NunitoFont = FontFamily.SansSerif
+
+val AmiriQuranFont = FontFamily.Default
 
 /**
  * Material 3 Expressive Typography Tokens
@@ -53,6 +48,21 @@ val AppTypography = Typography(
         fontSize   = 22.sp,
         lineHeight = 28.sp,
         letterSpacing = 0.75.sp
+    ),
+    
+    headlineLarge = TextStyle(
+        fontFamily = CinzelFont,
+        fontWeight = FontWeight.Bold,
+        fontSize   = 20.sp,
+        lineHeight = 26.sp,
+        letterSpacing = 1.0.sp
+    ),
+    headlineMedium = TextStyle(
+        fontFamily = CinzelFont,
+        fontWeight = FontWeight.SemiBold,
+        fontSize   = 18.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 0.5.sp
     ),
     
     titleLarge = TextStyle(

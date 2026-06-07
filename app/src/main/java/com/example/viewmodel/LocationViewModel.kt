@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
  */
 class LocationViewModel(context: Context) : ViewModel() {
 
+    private val appContext = context.applicationContext
     private val locationService = LocationService(context)
     private val prefs: SharedPreferences = context.getSharedPreferences("user_location_cache", Context.MODE_PRIVATE)
 
@@ -88,6 +89,8 @@ class LocationViewModel(context: Context) : ViewModel() {
             putString("cached_address", cityName)
             apply()
         }
+        // Pastikan seluruh widget sinkron dengan data koordinat kustom yang baru diset manual
+        id.ideahousetech.prayertime_qibla.widget.PrayerWidgetHelper.updateAllWidgets(appContext)
     }
 
     /**
@@ -109,6 +112,8 @@ class LocationViewModel(context: Context) : ViewModel() {
             putString("cached_address", address)
             apply()
         }
+        // Pastikan seluruh widget diperbarui ketika koordinat terbaru berhasil ter-cache dari pembacaan GPS otomatis
+        id.ideahousetech.prayertime_qibla.widget.PrayerWidgetHelper.updateAllWidgets(appContext)
     }
 
     /**

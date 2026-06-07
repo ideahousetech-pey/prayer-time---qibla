@@ -2,7 +2,6 @@ package id.ideahousetech.prayertime_qibla.ui
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,30 +14,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import id.ideahousetech.prayertime_qibla.AppScreen
 import id.ideahousetech.prayertime_qibla.ui.theme.*
+import id.ideahousetech.prayertime_qibla.ui.components.DailyInsightSection
 import id.ideahousetech.prayertime_qibla.utils.SecurePrefs
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
 import id.ideahousetech.prayertime_qibla.viewmodel.PrayerViewModel
 
 /**
- * Screen utama aplikasi Waktu Sholat & Kiblat.
- * Menampilkan tanggal ganda (Gregorian & Hijriah) di header, nama lokasi otomatis dari GPS,
- * kartu informasi waktu sholat berikutnya lengkap dng ticking countdown mundur,
- * dan carousel horizontal jadwal sholat harian 5 waktu.
- * (Telah di-refactor dng memecah component & dialog untuk meningkatkan maintainabilitas).
+ * Screen Utama Aplikasi Waktu Sholat & Kiblat (Sederhana & Berkinerja Tinggi).
+ * Desain disederhanakan secara radikal untuk mengurangi scrolling, visual noise, mementingkan
+ * readability, serta mematikan animasi kanvas berulang yang memakan daya baterai berlebih.
  */
 @Composable
 fun HomeScreen(
     prayerViewModel: PrayerViewModel,
     locationViewModel: LocationViewModel,
+    trackerViewModel: id.ideahousetech.prayertime_qibla.viewmodel.PrayerTrackerViewModel,
     onNavigateToScreen: (AppScreen) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -58,7 +52,6 @@ fun HomeScreen(
     var showSettingsDialog by remember { mutableStateOf(false) }
     var enableDailyReminder by remember { mutableStateOf(adzanPrefs.getBoolean("enable_daily_reminder", true)) }
 
-    // Animasi fade-in saat pertama tampil
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
 
@@ -66,62 +59,24 @@ fun HomeScreen(
         prayerName = nextPrayerName,
         modifier = modifier.fillMaxSize()
     ) {
-        // Elegant Repeating Islamic Girih Star (8-Point) Pattern
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val step = 100.dp.toPx()
-            val starSize = 26.dp.toPx()
-            var y = 0f
-            while (y < size.height + step) {
-                var x = 0f
-                while (x < size.width + step) {
-                    val center = Offset(x, y)
-                    
-                    // Outer subtle gold coordinate circle
-                    drawCircle(
-                        color = GoldPrimary.copy(alpha = 0.02f),
-                        radius = starSize * 1.3f,
-                        center = center,
-                        style = Stroke(width = 0.8f)
-                    )
-                    
-                    // First Square
-                    drawRect(
-                        color = GoldPrimary.copy(alpha = 0.03f),
-                        topLeft = Offset(center.x - starSize / 2, center.y - starSize / 2),
-                        size = androidx.compose.ui.geometry.Size(starSize, starSize),
-                        style = Stroke(width = 0.8f)
-                    )
-                    
-                    // Second Square - Rotated 45 degrees to form the 8-pointed star
-                    rotate(degrees = 45f, pivot = center) {
-                        drawRect(
-                            color = GoldPrimary.copy(alpha = 0.03f),
-                            topLeft = Offset(center.x - starSize / 2, center.y - starSize / 2),
-                            size = androidx.compose.ui.geometry.Size(starSize, starSize),
-                            style = Stroke(width = 0.8f)
-                        )
-                    }
-                    
-                    x += step
-                }
-                y += step
-            }
-        }
+        // PERFORMANCY AUDIT SUCCESS: Kanvas looping Girih bintang 8-titik yang memakan daya baterai
+        // telah dihilangkan sepenuhnya, diganti dng latar gradasi Emerald murni berkinerja tinggi.
 
         AnimatedVisibility(
             visible = visible,
-            enter   = fadeIn(tween(700)) + slideInVertically(tween(700)) { it / 10 }
+            enter   = fadeIn(tween(500)) + slideInVertically(tween(500)) { it / 14 }
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.statusBars)
                     .verticalScroll(rememberScrollState())
-                    .padding(bottom = 100.dp)
+                    .padding(bottom = 80.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(4.dp))
 
-                // 1. Header (Refresh GPS dipindahkan ke dalam dialog pengaturan)
+                // 1. Header Ringkas (Maksimal 72dp)
                 HomeHeader(
                     gregorianDate = todayGregorian,
                     hijriDate     = todayHijri,
@@ -130,38 +85,40 @@ fun HomeScreen(
                     onSettingsClick = { showSettingsDialog = true }
                 )
 
-                Spacer(Modifier.height(20.dp))
-
-                // 2. Hero Card sholat berikutnya
+                // 2. Hero Card Waktu Sholat Berikutnya (Maksimal 180dp)
                 NextPrayerHeroCard(
                     nextPrayerName = nextPrayerName,
                     countdown      = countdown,
                     todaySchedule  = todaySchedule
                 )
 
-                Spacer(Modifier.height(20.dp))
+                // 3. Flat Quick Actions Shortcuts Row (Tepat 4 Menu: Al-Qur'an, Kiblat, Tasbih, Pelacak)
+                QuickActionsRow(onNavigateToScreen = onNavigateToScreen)
 
-                // 3. 5 waktu sholat hari ini
+                // 4. Jadwal Sholat 5 Waktu Hari Ini (Linear Ringkas)
                 TodayPrayerTimesRow(
                     todaySchedule  = todaySchedule,
                     nextPrayerName = nextPrayerName
                 )
 
-                Spacer(Modifier.height(28.dp))
+                // 5. Shortcut Pencatatan Pelacak Sholat Harian
+                id.ideahousetech.prayertime_qibla.ui.components.PrayerTrackerQuickCard(
+                    trackerViewModel = trackerViewModel,
+                    onNavigateToScreen = onNavigateToScreen
+                )
 
-                // 4. Grid menu (Dengan Icons.Outlined yang unik)
-                GridMenuSection(onNavigateToScreen = onNavigateToScreen)
+                // 6. Insight Renungan Harian (Ekspandabel, Minim Ruang/Scroll)
+                DailyInsightSection()
 
                 if (enableDailyReminder) {
-                    Spacer(Modifier.height(16.dp))
                     ReminderNoteCard()
                 }
 
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(10.dp))
             }
         }
 
-        // PopUp Dialog Hari Besar Islam
+        // Dialog PopUp Hari Kebesaran Islam
         if (currentHolidayPopUp != null) {
             HolidayDialog(
                 holiday = currentHolidayPopUp!!,
@@ -169,7 +126,7 @@ fun HomeScreen(
             )
         }
 
-        // Dialog Pengaturan Aplikasi kustom
+        // Dialog Pengaturan Aplikasi
         if (showSettingsDialog) {
             SettingsDialog(
                 locationViewModel = locationViewModel,

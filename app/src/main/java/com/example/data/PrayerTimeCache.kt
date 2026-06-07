@@ -25,10 +25,11 @@ interface PrayerCacheDao {
     suspend fun clearExpiredCache(expiry: Long)
 }
 
-@Database(entities = [PrayerTimeCache::class, TasbihSession::class], version = 2, exportSchema = false)
+@Database(entities = [PrayerTimeCache::class, TasbihSession::class, PrayerTracker::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun prayerCacheDao(): PrayerCacheDao
     abstract fun tasbihDao(): TasbihDao
+    abstract fun prayerTrackerDao(): PrayerTrackerDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null

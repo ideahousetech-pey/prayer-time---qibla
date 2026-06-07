@@ -137,101 +137,172 @@ abstract class DownloadAssetsTask : DefaultTask() {
     @get:OutputDirectory
     abstract val fontDir: DirectoryProperty
 
-    private fun downloadUrlToFile(urlString: String, file: File) {
-        val connection = URL(urlString).openConnection()
-        connection.setRequestProperty("User-Agent", "Mozilla/5.0")
-        connection.connectTimeout = 15000
-        connection.readTimeout = 15000
-        connection.getInputStream().use { input ->
-            file.outputStream().use { output ->
-                input.copyTo(output)
-            }
-        }
-    }
-
     @TaskAction
     fun run() {
         val targetAssets = assetsDir.get().asFile
-        if (!targetAssets.exists()) {
-            targetAssets.mkdirs()
-        }
-        val adzanFile = File(targetAssets, "adzan.mp3")
-        if (!adzanFile.exists() || adzanFile.length() < 10) {
-            try {
-                println("Downloading adzan.mp3...")
-                val connection = URL("https://archive.org/download/adhan_202206/adhan.mp3").openConnection()
-                connection.setRequestProperty("User-Agent", "Mozilla/5.0")
-                connection.connectTimeout = 8000
-                connection.readTimeout = 8000
-                connection.getInputStream().use { input ->
-                    adzanFile.outputStream().use { output ->
-                        input.copyTo(output)
-                    }
-                }
-                println("adzan.mp3 download success.")
-            } catch (e: Exception) {
-                println("Failed to download adzan.mp3: ${e.message}")
-                adzanFile.writeBytes(ByteArray(1))
-            }
-        }
-        val adzanFajrFile = File(targetAssets, "adzan_fajr.mp3")
-        if (!adzanFajrFile.exists() || adzanFajrFile.length() < 10) {
-            try {
-                println("Downloading adzan_fajr.mp3...")
-                val connection = URL("https://archive.org/download/AzanMadinah_201712/azan_madinah.mp3").openConnection()
-                connection.setRequestProperty("User-Agent", "Mozilla/5.0")
-                connection.connectTimeout = 8000
-                connection.readTimeout = 8000
-                connection.getInputStream().use { input ->
-                    adzanFajrFile.outputStream().use { output ->
-                        input.copyTo(output)
-                    }
-                }
-                println("adzan_fajr.mp3 download success.")
-            } catch (e: Exception) {
-                println("Failed to download adzan_fajr.mp3: ${e.message}")
-                adzanFajrFile.writeBytes(ByteArray(1))
-            }
-        }
-        
-        // Download and structure font files in app/src/main/res/font
-        val targetFonts = fontDir.get().asFile
-        if (!targetFonts.exists()) {
-            targetFonts.mkdirs()
-        }
-        val fontsList = mapOf(
-            "cinzel_regular.ttf" to "https://fonts.gstatic.com/s/cinzel/v26/8vIU7ww63mVu7gtR-kwKxNvkNOjw-tbnTYo.ttf",
-            "cinzel_bold.ttf" to "https://fonts.gstatic.com/s/cinzel/v26/8vIU7ww63mVu7gtR-kwKxNvkNOjw-jHgTYo.ttf",
-            "nunito_light.ttf" to "https://fonts.gstatic.com/s/nunito/v32/XRXI3I6Li01BKofiOc5wtlZ2di8HDOUhRTM.ttf",
-            "nunito_regular.ttf" to "https://fonts.gstatic.com/s/nunito/v32/XRXI3I6Li01BKofiOc5wtlZ2di8HDLshRTM.ttf",
-            "nunito_semibold.ttf" to "https://fonts.gstatic.com/s/nunito/v32/XRXI3I6Li01BKofiOc5wtlZ2di8HDGUmRTM.ttf",
-            "nunito_bold.ttf" to "https://fonts.gstatic.com/s/nunito/v32/XRXI3I6Li01BKofiOc5wtlZ2di8HDFwmRTM.ttf"
+        targetAssets.mkdirs()
+
+        // ── Audio Adzan ────────────────────────────────────────────────────
+        // Beberapa URL fallback — dicoba berurutan jika yang pertama gagal
+        val adzanUrls = listOf(
+            "https://archive.org/download/adhan_202206/adhan.mp3",
+            "https://islamicsounds.net/adhan/mecca-adhan.mp3",
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" // placeholder terakhir
         )
-        fontsList.forEach { (name, url) ->
-            val fontFile = File(targetFonts, name)
-            if (!fontFile.exists() || fontFile.length() < 100) {
-                try {
-                    println("Downloading font: $name from $url...")
-                    downloadUrlToFile(url, fontFile)
-                    println("Downloaded font: $name success.")
-                } catch (e: Exception) {
-                    val altUrl = url.replace("/static/", "/")
-                    try {
-                        println("Retrying font download: $name from fallback $altUrl...")
-                        downloadUrlToFile(altUrl, fontFile)
-                        println("Downloaded font: $name from fallback success.")
-                    } catch (e2: Exception) {
-                        println("Failed to download font $name: ${e2.message}")
-                    }
+        val adzanFajrUrls = listOf(
+            "https://archive.org/download/AzanMadinah_201712/azan_madinah.mp3",
+            "https://archive.org/download/adhan_202206/adhan.mp3",
+            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"
+        )
+
+        downloadWithFallback(
+            urlList     = adzanUrls,
+            dest        = File(targetAssets, "adzan.mp3"),
+            minBytes    = 100_000L,
+            description = "adzan.mp3 (Adzan Mekah)"
+        )
+        downloadWithFallback(
+            urlList     = adzanFajrUrls,
+            dest        = File(targetAssets, "adzan_fajr.mp3"),
+            minBytes    = 100_000L,
+            description = "adzan_fajr.mp3 (Adzan Madinah Fajr)"
+        )
+
+        // ── Font ───────────────────────────────────────────────────────────
+        val targetFonts = fontDir.get().asFile
+        targetFonts.mkdirs()
+
+        val fonts = mapOf(
+            "cinzel_regular.ttf"  to listOf(
+                "https://fonts.gstatic.com/s/cinzel/v26/8vIU7ww63mVu7gtR-kwKxNvkNOjw-tbnTYo.ttf",
+                "https://raw.githubusercontent.com/google/fonts/main/ofl/cinzel/static/Cinzel-Regular.ttf"
+            ),
+            "cinzel_bold.ttf"     to listOf(
+                "https://fonts.gstatic.com/s/cinzel/v26/8vIU7ww63mVu7gtR-kwKxNvkNOjw-jHgTYo.ttf",
+                "https://raw.githubusercontent.com/google/fonts/main/ofl/cinzel/static/Cinzel-Bold.ttf"
+            ),
+            "nunito_light.ttf"    to listOf(
+                "https://fonts.gstatic.com/s/nunito/v32/XRXI3I6Li01BKofiOc5wtlZ2di8HDOUhRTM.ttf",
+                "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/static/Nunito-Light.ttf"
+            ),
+            "nunito_regular.ttf"  to listOf(
+                "https://fonts.gstatic.com/s/nunito/v32/XRXI3I6Li01BKofiOc5wtlZ2di8HDLshRTM.ttf",
+                "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/static/Nunito-Regular.ttf"
+            ),
+            "nunito_semibold.ttf" to listOf(
+                "https://fonts.gstatic.com/s/nunito/v32/XRXI3I6Li01BKofiOc5wtlZ2di8HDGUmRTM.ttf",
+                "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/static/Nunito-SemiBold.ttf"
+            ),
+            "nunito_bold.ttf"     to listOf(
+                "https://fonts.gstatic.com/s/nunito/v32/XRXI3I6Li01BKofiOc5wtlZ2di8HDFwmRTM.ttf",
+                "https://raw.githubusercontent.com/google/fonts/main/ofl/nunito/static/Nunito-Bold.ttf"
+            ),
+            "amiri_regular.ttf"   to listOf(
+                "https://fonts.gstatic.com/s/amiri/v26/J7aYCQ97_1_7-7yHLM0s8A.ttf",
+                "https://raw.githubusercontent.com/google/fonts/main/ofl/amiri/Amiri-Regular.ttf"
+            )
+        )
+        for ((name, urls) in fonts) {
+            downloadWithFallback(
+                urlList     = urls,
+                dest        = File(targetFonts, name),
+                minBytes    = 5_000L,
+                description = "font $name"
+            )
+        }
+    }
+
+    /**
+     * Mengunduh file dengan beberapa URL fallback.
+     * Jika semua URL gagal → throw GradleException (build GAGAL dengan pesan jelas).
+     * Jika file sudah valid → skip.
+     */
+    private fun downloadWithFallback(
+        urlList     : List<String>,
+        dest        : File,
+        minBytes    : Long,
+        description : String
+    ) {
+        // Skip jika sudah valid
+        if (dest.exists() && dest.length() >= minBytes) {
+            println("✓ $description sudah ada (${dest.length()} bytes), skip.")
+            return
+        }
+
+        // Hapus file lama yang tidak valid
+        if (dest.exists()) dest.delete()
+
+        val isAudio  = description.contains(".mp3")
+        val timeout  = if (isAudio) 45_000 else 20_000  // audio butuh timeout lebih lama
+
+        var lastError: String = "Tidak ada error"
+
+        for ((idx, url) in urlList.withIndex()) {
+            println("⏳ Mencoba unduh $description (percobaan ${idx + 1}/${urlList.size}): $url")
+            try {
+                val conn = URL(url).openConnection()
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android)")
+                conn.connectTimeout = timeout
+                conn.readTimeout    = timeout
+
+                conn.getInputStream().use { input ->
+                    dest.outputStream().use { out -> input.copyTo(out) }
                 }
+                if (dest.exists() && dest.length() >= minBytes) {
+                    println("✓ $description berhasil (${dest.length()} bytes).")
+                    return
+                } else {
+                    lastError = "Ukuran terlalu kecil: ${dest.length()} bytes (min $minBytes)"
+                    dest.delete()
+                    println("✗ $description ukuran tidak valid, coba URL berikutnya...")
+                }
+            } catch (e: Exception) {
+                lastError = e.message ?: "Unknown error"
+                println("✗ Gagal dari $url: $lastError")
+                if (dest.exists()) dest.delete()
+                if (idx < urlList.size - 1) Thread.sleep(1500)
             }
         }
+
+        // Semua URL gagal
+        throw org.gradle.api.GradleException(
+            """
+            ════════════════════════════════════════════════════════════
+            ✗ BUILD GAGAL: Tidak dapat mengunduh $description
+            Error terakhir: $lastError
+            
+            Solusi:
+            1. Periksa koneksi internet, lalu jalankan: ./gradlew downloadAssets
+            2. Atau unduh manual dan simpan ke:
+               ${dest.absolutePath}
+            ════════════════════════════════════════════════════════════
+            """.trimIndent()
+        )
     }
 }
 
 val downloadAssets = tasks.register<DownloadAssetsTask>("downloadAssets") {
     assetsDir.set(layout.projectDirectory.dir("src/main/assets"))
     fontDir.set(layout.projectDirectory.dir("src/main/res/font"))
+}
+
+tasks.register("checkFonts") {
+    doLast {
+        val fDir = file("src/main/res/font")
+        if (fDir.exists() && fDir.isDirectory) {
+            fDir.listFiles()?.forEach { file ->
+                println("FONT_DIAGNOSTIC: Name: ${file.name}, Size: ${file.length()} bytes")
+                if (file.length() > 0) {
+                    val bytes = file.readBytes().take(100)
+                    val sampleString = bytes.map { it.toInt().toChar() }.joinToString("")
+                    val isHtml = sampleString.contains("DOCTYPE") || sampleString.contains("<html") || sampleString.contains("<HTML")
+                    println("  Is HTML: $isHtml, Sample: ${sampleString.replace('\n', ' ').replace('\r', ' ').take(60)}")
+                }
+            }
+        } else {
+            println("FONT_DIAGNOSTIC: src/main/res/font directory does not exist!")
+        }
+    }
 }
 
 tasks.named("preBuild") {

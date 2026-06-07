@@ -1,8 +1,11 @@
 package id.ideahousetech.prayertime_qibla.ui
 
+import android.app.AlarmManager
 import android.content.Context
+import android.content.Intent
 import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Build
 import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -21,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -287,12 +291,12 @@ fun SettingsDialog(
                 urlsToTry.add(adzan.url.replace("https://", "http://"))
             }
             
-            // 3. Fallback Archive.org links (known stable backups)
+            // 3. Fallback links (known stable backups from GitHub and Islamcan CDN)
             val fallbackUrl = when (adzan.displayName) {
-                "Adzan Makkah" -> "https://archive.org/download/adhan_202206/adhan.mp3"
-                "Adzan Madinah" -> "https://archive.org/download/AzanMadinah_201712/azan_madinah.mp3"
-                "Adzan Makkah Subuh" -> "https://archive.org/download/AzanMadinah_201712/azan_madinah.mp3"
-                else -> if (isSubuh) "https://archive.org/download/AzanMadinah_201712/azan_madinah.mp3" else "https://archive.org/download/adhan_202206/adhan.mp3"
+                "Adzan Makkah" -> "https://raw.githubusercontent.com/sidandv/My-Azan/master/Azan.mp3"
+                "Adzan Madinah" -> "https://www.islamcan.com/audio/adhans/adhan10.mp3"
+                "Adzan Makkah Subuh" -> "https://www.islamcan.com/audio/adhans/adhan2.mp3"
+                else -> if (isSubuh) "https://www.islamcan.com/audio/adhans/adhan2.mp3" else "https://raw.githubusercontent.com/sidandv/My-Azan/master/Azan.mp3"
             }
             urlsToTry.add(fallbackUrl)
             urlsToTry.add(fallbackUrl.replace("https://", "http://"))
@@ -718,6 +722,57 @@ fun SettingsDialog(
                             uncheckedTrackColor = DividerLine
                         )
                     )
+                }
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                    if (!alarmManager.canScheduleExactAlarms()) {
+                        // Banner peringatan exact alarm
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                                .clickable {
+                                    // Buka Settings untuk grant exact alarm permission
+                                    val intent = Intent(
+                                        android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                        Uri.parse("package:${context.packageName}")
+                                    )
+                                    context.startActivity(intent)
+                                },
+                            colors = CardDefaults.cardColors(
+                                containerColor = WarningAmber.copy(alpha = 0.15f)
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            border = BorderStroke(1.dp, WarningAmber.copy(alpha = 0.5f))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Warning,
+                                    contentDescription = null,
+                                    tint = WarningAmber,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        "Izin Alarm Tepat Waktu Belum Diberikan",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = WarningAmber
+                                    )
+                                    Text(
+                                        "Ketuk di sini → Aktifkan izin → Alarm adzan bisa telat tanpa ini",
+                                        fontSize = 11.sp,
+                                        color = TextSecondary
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(10.dp))

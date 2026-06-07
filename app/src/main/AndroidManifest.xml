@@ -22,6 +22,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
+    <!-- Izin Tambahan -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
     <application
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -62,6 +66,45 @@
             android:exported="false">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Layanan ini menjaga agar scheduler adzan tetap berjalan tepat waktu dan tidak di-kill oleh OS." />
         </service>
+
+        <!-- Widget Sholat: Small (2x2) -->
+        <receiver
+            android:name=".widget.PrayerSmallWidgetProvider"
+            android:exported="true"
+            android:label="Jadwal Sholat (Small)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_small_info" />
+        </receiver>
+
+        <!-- Widget Sholat: Medium (4x2) -->
+        <receiver
+            android:name=".widget.PrayerMediumWidgetProvider"
+            android:exported="true"
+            android:label="Jadwal Sholat (Medium)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_medium_info" />
+        </receiver>
+
+        <!-- Widget Sholat: Large (4x4) -->
+        <receiver
+            android:name=".widget.PrayerLargeWidgetProvider"
+            android:exported="true"
+            android:label="Jadwal Sholat (Large)">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_large_info" />
+        </receiver>
 
     </application>
 

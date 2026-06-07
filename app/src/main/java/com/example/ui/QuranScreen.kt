@@ -335,7 +335,7 @@ fun QuranScreen(
                             Text(
                                 text = activeSurah.arabicName,
                                 fontSize = 28.sp,
-                                fontFamily = FontFamily.Serif,
+                                fontFamily = AmiriQuranFont,
                                 color = GoldPrimary,
                                 modifier = Modifier.padding(bottom = 6.dp)
                             )
@@ -350,7 +350,7 @@ fun QuranScreen(
                                 Text(
                                     text = "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
                                     fontSize = 18.sp,
-                                    fontFamily = FontFamily.Serif,
+                                    fontFamily = AmiriQuranFont,
                                     color = TextPrimary,
                                     textAlign = TextAlign.Center
                                 )
@@ -508,7 +508,7 @@ fun SurahListItemCard(
             Text(
                 text = surah.arabicName,
                 fontSize = 20.sp,
-                fontFamily = FontFamily.Serif,
+                fontFamily = AmiriQuranFont,
                 fontWeight = FontWeight.Bold,
                 color = GoldPrimary
             )
@@ -564,7 +564,7 @@ fun VerseItemCard(
             Text(
                 text = verse.arabic,
                 fontSize = 24.sp,
-                fontFamily = FontFamily.Serif,
+                fontFamily = AmiriQuranFont,
                 lineHeight = 42.sp,
                 textAlign = TextAlign.End,
                 modifier = Modifier.fillMaxWidth(),

@@ -120,6 +120,8 @@ class PrayerViewModel(private val context: Context) : ViewModel() {
                 // Mengaktifkan alarm adzan harian lewat NotificationService
                 launch(Dispatchers.Main) {
                     todayData?.let { notificationService.scheduleDailyAlarms(it) }
+                    // Update widget layar utama agar sinkron dengan jadwal baru
+                    id.ideahousetech.prayertime_qibla.widget.PrayerWidgetHelper.updateAllWidgets(context)
                 }
             } else {
                 // Total fallback dari perhitungan astronomis lokal langsung
@@ -131,6 +133,8 @@ class PrayerViewModel(private val context: Context) : ViewModel() {
                 
                 launch(Dispatchers.Main) {
                     todayData?.let { notificationService.scheduleDailyAlarms(it) }
+                    // Update widget layar utama agar sinkron dengan jadwal baru
+                    id.ideahousetech.prayertime_qibla.widget.PrayerWidgetHelper.updateAllWidgets(context)
                 }
             }
         }
@@ -164,7 +168,7 @@ class PrayerViewModel(private val context: Context) : ViewModel() {
 
         // Daftar waktu sholat hari ini
         val prayerTimesList = listOf(
-            Triple("Subuh (Fajr)", times.fajr, false),
+            Triple("Subuh", times.fajr, false),
             Triple("Dzuhur", times.dhuhr, false),
             Triple("Ashar", times.asr, false),
             Triple("Maghrib", times.maghrib, false),
