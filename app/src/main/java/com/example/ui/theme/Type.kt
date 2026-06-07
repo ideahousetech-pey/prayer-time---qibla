@@ -18,11 +18,21 @@ import id.ideahousetech.prayertime_qibla.R
  * Font 3: Amiri - Classic Naskh Quranic typeface for Arabic Scriptures
  */
 
-val CinzelFont = FontFamily.Serif
+val CinzelFont = FontFamily(
+    Font(R.font.cinzel_regular, FontWeight.Normal),
+    Font(R.font.cinzel_bold, FontWeight.Bold)
+)
 
-val NunitoFont = FontFamily.SansSerif
+val NunitoFont = FontFamily(
+    Font(R.font.nunito_light, FontWeight.Light),
+    Font(R.font.nunito_regular, FontWeight.Normal),
+    Font(R.font.nunito_semibold, FontWeight.SemiBold),
+    Font(R.font.nunito_bold, FontWeight.Bold)
+)
 
-val AmiriQuranFont = FontFamily.Default
+val AmiriQuranFont = FontFamily(
+    Font(R.font.amiri_regular, FontWeight.Normal)
+)
 
 /**
  * Material 3 Expressive Typography Tokens
