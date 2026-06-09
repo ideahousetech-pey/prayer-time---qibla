@@ -49,8 +49,11 @@ fun HomeScreen(
 
     val context = LocalContext.current
     val adzanPrefs = remember { SecurePrefs.get(context) }
-    var showSettingsDialog by remember { mutableStateOf(false) }
     var enableDailyReminder by remember { mutableStateOf(adzanPrefs.getBoolean("enable_daily_reminder", true)) }
+
+    LaunchedEffect(Unit) {
+        enableDailyReminder = adzanPrefs.getBoolean("enable_daily_reminder", true)
+    }
 
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
@@ -81,8 +84,7 @@ fun HomeScreen(
                     gregorianDate = todayGregorian,
                     hijriDate     = todayHijri,
                     locationName  = locationName,
-                    isLoading     = isLoadingLoc,
-                    onSettingsClick = { showSettingsDialog = true }
+                    isLoading     = isLoadingLoc
                 )
 
                 // 2. Hero Card Waktu Sholat Berikutnya (Maksimal 180dp)
@@ -114,22 +116,6 @@ fun HomeScreen(
             HolidayDialog(
                 holiday = currentHolidayPopUp!!,
                 onDismiss = { prayerViewModel.dismissHolidayPopUp() }
-            )
-        }
-
-        // Dialog Pengaturan Aplikasi
-        if (showSettingsDialog) {
-            SettingsDialog(
-                locationViewModel = locationViewModel,
-                onDismiss = {
-                    showSettingsDialog = false
-                    userLocation?.let {
-                        prayerViewModel.loadPrayerTimesForLocation(it.latitude, it.longitude)
-                    }
-                },
-                onReminderToggle = { enabled ->
-                    enableDailyReminder = enabled
-                }
             )
         }
     }

@@ -79,10 +79,11 @@ import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
 import id.ideahousetech.prayertime_qibla.viewmodel.PrayerViewModel
 import id.ideahousetech.prayertime_qibla.ui.ExploreScreen
 import id.ideahousetech.prayertime_qibla.ui.ProfileScreen
+import id.ideahousetech.prayertime_qibla.ui.SettingsScreen
 import id.ideahousetech.prayertime_qibla.ui.components.FloatingBottomBar
 import androidx.compose.material.icons.filled.Cached
 import androidx.compose.material.icons.filled.Explore
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 
 /**
  * Aktivitas utama (MainActivity) yang bertindak sebagai gerbang masuk aplikasi.
@@ -157,7 +158,7 @@ enum class AppScreen(val title: String, val icon: ImageVector) {
     TASBIH("Tasbih", Icons.Default.Cached),
     TRACKER("Pelacak Sholat", Icons.Default.Check),
     EXPLORE("Eksplor", Icons.Default.Explore),
-    PROFILE("Profil", Icons.Default.Person)
+    PROFILE("Pengaturan", Icons.Default.Settings)
 }
 
 @Composable
@@ -336,22 +337,13 @@ fun MainLayout(
                         }
                     )
                     AppScreen.PROFILE -> {
-                        var showProfileSettingsDialog by remember { mutableStateOf(false) }
-                        ProfileScreen(
-                            onOpenSettingsDialog = { showProfileSettingsDialog = true }
+                        SettingsScreen(
+                            locationViewModel = locationViewModel,
+                            prayerViewModel = prayerViewModel,
+                            onReminderToggle = { enabled ->
+                                // Any custom trigger or reload if required
+                            }
                         )
-                        if (showProfileSettingsDialog) {
-                            SettingsDialog(
-                                locationViewModel = locationViewModel,
-                                onDismiss = {
-                                    showProfileSettingsDialog = false
-                                    userLocation?.let {
-                                        prayerViewModel.loadPrayerTimesForLocation(it.latitude, it.longitude)
-                                    }
-                                },
-                                onReminderToggle = { /* handled */ }
-                            )
-                        }
                     }
                     AppScreen.KIBLAT -> QiblaScreen(
                         locationViewModel = locationViewModel,

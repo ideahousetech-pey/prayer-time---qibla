@@ -16,7 +16,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -59,7 +59,7 @@ fun FloatingBottomBar(
             NavigationTabItem(AppScreen.QURAN, "Quran", Icons.Default.MenuBook, "tab_quran"),
             NavigationTabItem(AppScreen.TRACKER, "Aktivitas", Icons.Default.CheckCircle, "tab_activity"),
             NavigationTabItem(AppScreen.EXPLORE, "Eksplor", Icons.Default.Explore, "tab_explore"),
-            NavigationTabItem(AppScreen.PROFILE, "Profil", Icons.Default.Person, "tab_profile")
+            NavigationTabItem(AppScreen.PROFILE, "Pengaturan", Icons.Default.Settings, "tab_settings")
         )
     }
 

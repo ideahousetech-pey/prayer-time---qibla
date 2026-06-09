@@ -117,8 +117,7 @@ fun HomeHeader(
     gregorianDate : String,
     hijriDate     : String,
     locationName  : String,
-    isLoading     : Boolean,
-    onSettingsClick : () -> Unit
+    isLoading     : Boolean
 ) {
     Row(
         modifier = Modifier
@@ -142,13 +141,13 @@ fun HomeHeader(
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    text = locationName.ifEmpty { "Mencari GPS..." },
-                    fontSize = 12.sp,
-                    fontFamily = NunitoFont,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                     text = locationName.ifEmpty { "Mencari GPS..." },
+                     fontSize = 12.sp,
+                     fontFamily = NunitoFont,
+                     fontWeight = FontWeight.Bold,
+                     color = TextPrimary,
+                     maxLines = 1,
+                     overflow = TextOverflow.Ellipsis
                 )
                 if (isLoading) {
                     Spacer(Modifier.width(6.dp))
@@ -171,23 +170,6 @@ fun HomeHeader(
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
-            )
-        }
-
-        // Settings Button
-        IconButton(
-            onClick = onSettingsClick,
-            modifier = Modifier
-                .size(36.dp)
-                .background(CardElevated, CircleShape)
-                .border(0.5.dp, GoldPrimary.copy(alpha = 0.25f), CircleShape)
-                .testTag("settings_button")
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Settings,
-                contentDescription = "Pengaturan",
-                tint = GoldPrimary,
-                modifier = Modifier.size(16.dp)
             )
         }
     }
