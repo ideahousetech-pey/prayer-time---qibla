@@ -6,7 +6,38 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.mutableStateOf
 import id.ideahousetech.prayertime_qibla.R
+
+/**
+ * =======================================================
+ * DYNAMIC FONT RENDERING FALLBACK MANAGER (ANTI-CRASH)
+ * =======================================================
+ * Detects if the device environment (or SDK runtime) can safely
+ * process custom raw TTF files via standard resource getters.
+ * If not, triggers graceful custom system font mappings.
+ */
+object FontFallbackManager {
+    private val useSystemFallbackState = mutableStateOf(false)
+
+    val useSystemFallback: Boolean
+        get() = useSystemFallbackState.value
+
+    private var isInitialized = false
+
+    fun initialize(context: android.content.Context) {
+        if (isInitialized) return
+        isInitialized = true
+        useSystemFallbackState.value = try {
+            // Actively test loading one of the bundled fonts from resources
+            androidx.core.content.res.ResourcesCompat.getFont(context, R.font.cinzel_regular)
+            false // Success!
+        } catch (e: Throwable) {
+            android.util.Log.e("FontFallbackManager", "Custom fonts failed to load; using system default fallback.", e)
+            true // Trigger fallback
+        }
+    }
+}
 
 /**
  * ==========================================
@@ -18,26 +49,42 @@ import id.ideahousetech.prayertime_qibla.R
  * Font 3: Amiri - Classic Naskh Quranic typeface for Arabic Scriptures
  */
 
-val CinzelFont = FontFamily(
-    Font(R.font.cinzel_regular, FontWeight.Normal),
-    Font(R.font.cinzel_bold, FontWeight.Bold)
-)
+val CinzelFont: FontFamily
+    get() = if (FontFallbackManager.useSystemFallback) {
+        FontFamily.Serif
+    } else {
+        FontFamily(
+            Font(R.font.cinzel_regular, FontWeight.Normal),
+            Font(R.font.cinzel_bold, FontWeight.Bold)
+        )
+    }
 
-val NunitoFont = FontFamily(
-    Font(R.font.nunito_light, FontWeight.Light),
-    Font(R.font.nunito_regular, FontWeight.Normal),
-    Font(R.font.nunito_semibold, FontWeight.SemiBold),
-    Font(R.font.nunito_bold, FontWeight.Bold)
-)
+val NunitoFont: FontFamily
+    get() = if (FontFallbackManager.useSystemFallback) {
+        FontFamily.SansSerif
+    } else {
+        FontFamily(
+            Font(R.font.nunito_light, FontWeight.Light),
+            Font(R.font.nunito_regular, FontWeight.Normal),
+            Font(R.font.nunito_semibold, FontWeight.SemiBold),
+            Font(R.font.nunito_bold, FontWeight.Bold)
+        )
+    }
 
-val AmiriQuranFont = FontFamily(
-    Font(R.font.amiri_regular, FontWeight.Normal)
-)
+val AmiriQuranFont: FontFamily
+    get() = if (FontFallbackManager.useSystemFallback) {
+        FontFamily.Default
+    } else {
+        FontFamily(
+            Font(R.font.amiri_regular, FontWeight.Normal)
+        )
+    }
 
 /**
  * Material 3 Expressive Typography Tokens
  */
-val AppTypography = Typography(
+val AppTypography: Typography
+    get() = Typography(
     displayLarge = TextStyle(
         fontFamily = CinzelFont,
         fontWeight = FontWeight.Bold,

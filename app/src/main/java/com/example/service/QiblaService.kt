@@ -91,7 +91,8 @@ class QiblaService(context: Context) : SensorEventListener {
     }
 
     // Callbacks SensorEventListener
-    override fun onSensorChanged(event: SensorEvent) {
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event == null) return
         try {
             if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
                 val copySize = minOf(event.values.size, gravity.size)

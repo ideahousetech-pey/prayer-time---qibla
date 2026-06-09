@@ -3,7 +3,9 @@ package id.ideahousetech.prayertime_qibla.ui.theme
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 
 /**
  * ==========================================
@@ -81,6 +83,13 @@ fun MyApplicationTheme(
         AppLightColorScheme
     }
 
+    // Initialize custom font loading fallbacks synchronously before measurement and layout
+    val context = LocalContext.current
+    remember(context) {
+        FontFallbackManager.initialize(context)
+        true
+    }
+
     // 2026 Material 3 Expressive Engine Activation
     MaterialTheme(
         colorScheme = colors,
@@ -89,4 +98,3 @@ fun MyApplicationTheme(
         content     = content
     )
 }
-

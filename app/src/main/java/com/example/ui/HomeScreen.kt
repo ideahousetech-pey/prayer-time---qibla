@@ -71,7 +71,7 @@ fun HomeScreen(
                     .fillMaxSize()
                     .windowInsetsPadding(WindowInsets.statusBars)
                     .verticalScroll(rememberScrollState())
-                    .padding(bottom = 80.dp),
+                    .padding(bottom = 90.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Spacer(Modifier.height(4.dp))
@@ -92,22 +92,13 @@ fun HomeScreen(
                     todaySchedule  = todaySchedule
                 )
 
-                // 3. Flat Quick Actions Shortcuts Row (Tepat 4 Menu: Al-Qur'an, Kiblat, Tasbih, Pelacak)
-                QuickActionsRow(onNavigateToScreen = onNavigateToScreen)
-
-                // 4. Jadwal Sholat 5 Waktu Hari Ini (Linear Ringkas)
+                // 3. Jadwal Sholat 5 Waktu Hari Ini (Linear Ringkas)
                 TodayPrayerTimesRow(
                     todaySchedule  = todaySchedule,
                     nextPrayerName = nextPrayerName
                 )
 
-                // 5. Shortcut Pencatatan Pelacak Sholat Harian
-                id.ideahousetech.prayertime_qibla.ui.components.PrayerTrackerQuickCard(
-                    trackerViewModel = trackerViewModel,
-                    onNavigateToScreen = onNavigateToScreen
-                )
-
-                // 6. Insight Renungan Harian (Ekspandabel, Minim Ruang/Scroll)
+                // 4. Insight Renungan Harian (Ekspandabel, Minim Ruang/Scroll)
                 DailyInsightSection()
 
                 if (enableDailyReminder) {

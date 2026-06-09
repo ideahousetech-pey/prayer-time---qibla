@@ -70,13 +70,19 @@ import id.ideahousetech.prayertime_qibla.ui.QiblaScreen
 import id.ideahousetech.prayertime_qibla.ui.DailyScheduleScreen
 import id.ideahousetech.prayertime_qibla.ui.QuranScreen
 import id.ideahousetech.prayertime_qibla.ui.TasbihScreen
+import id.ideahousetech.prayertime_qibla.ui.SettingsDialog
 import id.ideahousetech.prayertime_qibla.ui.theme.MyApplicationTheme
 import id.ideahousetech.prayertime_qibla.ui.theme.DeepNight
 import id.ideahousetech.prayertime_qibla.ui.theme.MidnightLayer
 import id.ideahousetech.prayertime_qibla.ui.theme.GoldPrimary
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
 import id.ideahousetech.prayertime_qibla.viewmodel.PrayerViewModel
+import id.ideahousetech.prayertime_qibla.ui.ExploreScreen
+import id.ideahousetech.prayertime_qibla.ui.ProfileScreen
+import id.ideahousetech.prayertime_qibla.ui.components.FloatingBottomBar
 import androidx.compose.material.icons.filled.Cached
+import androidx.compose.material.icons.filled.Explore
+import androidx.compose.material.icons.filled.Person
 
 /**
  * Aktivitas utama (MainActivity) yang bertindak sebagai gerbang masuk aplikasi.
@@ -149,7 +155,9 @@ enum class AppScreen(val title: String, val icon: ImageVector) {
     JADWAL_HARIAN("Jadwal Harian", Icons.Default.Schedule),
     QURAN("Al-Qur'an", Icons.Default.MenuBook),
     TASBIH("Tasbih", Icons.Default.Cached),
-    TRACKER("Pelacak Sholat", Icons.Default.Check)
+    TRACKER("Pelacak Sholat", Icons.Default.Check),
+    EXPLORE("Eksplor", Icons.Default.Explore),
+    PROFILE("Profil", Icons.Default.Person)
 }
 
 @Composable
@@ -289,7 +297,24 @@ fun MainLayout(
             containerColor = Color.Transparent,
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .windowInsetsPadding(WindowInsets.safeDrawing),
+            bottomBar = {
+                val isMainTabScreen = currentScreen in listOf(
+                    AppScreen.SHOLAT,
+                    AppScreen.QURAN,
+                    AppScreen.TRACKER,
+                    AppScreen.EXPLORE,
+                    AppScreen.PROFILE
+                )
+                if (isMainTabScreen) {
+                    FloatingBottomBar(
+                        currentScreen = currentScreen,
+                        onTabSelected = { screen ->
+                            navigateTo(screen)
+                        }
+                    )
+                }
+            }
         ) { innerPadding ->
             Box(
                 modifier = Modifier
@@ -305,6 +330,29 @@ fun MainLayout(
                             navigateTo(screen)
                         }
                     )
+                    AppScreen.EXPLORE -> ExploreScreen(
+                        onNavigateToScreen = { screen ->
+                            navigateTo(screen)
+                        }
+                    )
+                    AppScreen.PROFILE -> {
+                        var showProfileSettingsDialog by remember { mutableStateOf(false) }
+                        ProfileScreen(
+                            onOpenSettingsDialog = { showProfileSettingsDialog = true }
+                        )
+                        if (showProfileSettingsDialog) {
+                            SettingsDialog(
+                                locationViewModel = locationViewModel,
+                                onDismiss = {
+                                    showProfileSettingsDialog = false
+                                    userLocation?.let {
+                                        prayerViewModel.loadPrayerTimesForLocation(it.latitude, it.longitude)
+                                    }
+                                },
+                                onReminderToggle = { /* handled */ }
+                            )
+                        }
+                    }
                     AppScreen.KIBLAT -> QiblaScreen(
                         locationViewModel = locationViewModel,
                         onBackClick = { navigateBack() }
