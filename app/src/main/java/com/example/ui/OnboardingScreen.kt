@@ -134,7 +134,7 @@ fun OnboardingScreen(
                         0 -> OnboardingPageContent(
                             icon = Icons.Default.NotificationsActive,
                             iconColor = GoldPrimary,
-                            title = "WREKAN JADWAL SHOLAT",
+                            title = "PENGINGAT JADWAL SHOLAT",
                             subTitle = "Jadwal Tepat Waktu & Alarm Adzan",
                             description = "Nikmati penentuan 5 waktu sholat fardhu yang presisi berdasarkan kordinat GPS Anda secara langsung. Dilengkapi seruan adzan merdu otomatis saat waktu sholat tiba."
                         )

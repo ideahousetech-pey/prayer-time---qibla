@@ -335,17 +335,17 @@ class NotificationService(private val context: Context) {
         for (fileName in filesToCopy) {
             val destFile = File(context.filesDir, fileName)
 
-            // Skip jika file tujuan sudah valid
-            if (destFile.exists() && destFile.length() > 100_000) {
-                Log.d("NotificationService", "$fileName sudah ada dan valid di filesDir")
-                continue
-            }
-
             // Cek apakah file assets valid sebelum disalin
             try {
                 val afd = context.assets.openFd(fileName)
                 val assetSize = afd.length
                 afd.close()
+
+                // Jika file tujuan sudah ada dan berukuran sama persis dengan asset (artinya identik/sudah terupdate), silakan skip
+                if (destFile.exists() && destFile.length() == assetSize && assetSize > 100_000) {
+                    Log.d("NotificationService", "$fileName sudah ada dan identik dengan assets di filesDir")
+                    continue
+                }
 
                 if (assetSize > 100_000) {
                     // File assets valid — salin ke filesDir
@@ -354,17 +354,20 @@ class NotificationService(private val context: Context) {
                             input.copyTo(output)
                         }
                     }
-                    Log.d("NotificationService", "Tersalin: $fileName (${destFile.length()} bytes)")
+                    Log.d("NotificationService", "Tersalin/Terupdate: $fileName (${destFile.length()} bytes)")
                 } else {
                     // File assets tidak valid (terlalu kecil) — jangan salin
-                    // playAdzanAudio akan fallback ke ringtone sistem
                     Log.w("NotificationService",
                         "$fileName di assets tidak valid (${assetSize} bytes), " +
                         "akan menggunakan ringtone sistem sebagai fallback")
                     if (destFile.exists()) destFile.delete() // Hapus file lama yang tidak valid
                 }
             } catch (e: Exception) {
-                Log.e("NotificationService", "Tidak bisa akses assets/$fileName: ${e.message}")
+                Log.e("NotificationService", "Tidak bisa akses/salin assets/$fileName: ${e.message}")
+                // Sebagai fallback, jika file sudah ada > 100KB, biarkan saja
+                if (destFile.exists() && destFile.length() > 100_000) {
+                    Log.d("NotificationService", "Fallback menggunakan file lokal yang sudah ada: $fileName")
+                }
             }
         }
     }

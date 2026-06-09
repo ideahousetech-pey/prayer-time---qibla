@@ -332,6 +332,7 @@ fun MainLayout(
                         }
                     )
                     AppScreen.EXPLORE -> ExploreScreen(
+                        locationViewModel = locationViewModel,
                         onNavigateToScreen = { screen ->
                             navigateTo(screen)
                         }

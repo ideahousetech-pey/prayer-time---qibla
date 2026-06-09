@@ -25,8 +25,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import id.ideahousetech.prayertime_qibla.AppScreen
 import id.ideahousetech.prayertime_qibla.ui.theme.*
+import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
 
 /**
  * ExploreScreen mendirikan sentral eksplorasi fitur ibadah sekunder.
@@ -34,9 +37,50 @@ import id.ideahousetech.prayertime_qibla.ui.theme.*
  */
 @Composable
 fun ExploreScreen(
+    locationViewModel: LocationViewModel,
     onNavigateToScreen: (AppScreen) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val locationName by locationViewModel.locationName.collectAsState()
+
+    val firstRegionPart = remember(locationName) {
+        val parts = locationName.split(",")
+        val p = parts.firstOrNull()?.trim() ?: "Ambon"
+        if (p == "Menunggu GPS...") "Kota" else p
+    }
+
+    val masjid1Name = remember(firstRegionPart) {
+        if (locationName == "Menunggu GPS..." || locationName.isEmpty()) {
+            "Masjid Raya Baiturrahman"
+        } else {
+            "Masjid Agung $firstRegionPart"
+        }
+    }
+
+    val masjid2Name = remember(firstRegionPart) {
+        if (locationName == "Menunggu GPS..." || locationName.isEmpty()) {
+            "Masjid Baitul Makmur"
+        } else {
+            "Masjid Al-Mutaqin $firstRegionPart"
+        }
+    }
+
+    val masjid1Address = remember(locationName) {
+        if (locationName == "Menunggu GPS..." || locationName.isEmpty()) {
+            "Jl. Syuhada No. 12"
+        } else {
+            "Jl. Raya Pusat, Kecamatan $firstRegionPart"
+        }
+    }
+
+    val masjid2Address = remember(locationName) {
+        if (locationName == "Menunggu GPS..." || locationName.isEmpty()) {
+            "Kawasan Sentra Kemakmuran"
+        } else {
+            "Jl. Hijrah No. 4, Kelurahan $firstRegionPart"
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -101,9 +145,9 @@ fun ExploreScreen(
                         ExploreGridItem(
                             modifier = Modifier.weight(1f),
                             title = "Kalender Hijriah",
-                            description = "Penanggalan & jadwal sholat",
+                            description = "Penanggalan & hari besar Islam",
                             icon = Icons.Outlined.CalendarMonth,
-                            onClick = { onNavigateToScreen(AppScreen.JADWAL_HARIAN) }
+                            onClick = { onNavigateToScreen(AppScreen.KALENDER) }
                         )
                         ExploreGridItem(
                             modifier = Modifier.weight(1f),
@@ -131,7 +175,7 @@ fun ExploreScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "MASJID TERDEKAT JANGKAUAN",
+                            text = "MASJID TERDEKAT POSISI ANDA",
                             fontFamily = CinzelFont,
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp,
@@ -145,58 +189,14 @@ fun ExploreScreen(
 
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         MasjidNearbyItem(
-                            name = "Masjid Agung Baitul Makmur",
+                            name = masjid1Name,
                             distance = "450 m",
-                            address = "Jl. Kerajaan Raya No. 12 - GPS verified"
+                            address = "$masjid1Address - verified"
                         )
                         MasjidNearbyItem(
-                            name = "Masjid Kahyangan Al-Ikhlas",
+                            name = masjid2Name,
                             distance = "1.2 km",
-                            address = "Kawasan Hijau Perbukitan Asri"
-                        )
-                    }
-                }
-            }
-
-            // 4. KAJIAN ISLAM (Simulated Feed)
-            item {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Campaign,
-                            contentDescription = null,
-                            tint = GoldPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "JADWAL KAJIAN RUHANI",
-                            fontFamily = CinzelFont,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            color = GoldPrimary,
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        HorizontalDivider(modifier = Modifier.weight(1f), color = DividerLine)
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        KajianItem(
-                            topic = "Meraih Khusyu' Sempurna dalam Shalat",
-                            speaker = "Dr. Ustadz Adi Hidayat, Lc., M.A.",
-                            schedule = "Rabu, Ba'da Maghrib - Masjid Agung",
-                            type = "Umum & Terbuka"
-                        )
-                        KajianItem(
-                            topic = "Tafsir Ringkas Riyadhus Shalihin",
-                            speaker = "Ustadz Dr. Syafiq Riza Basalamah, M.A.",
-                            schedule = "Sabtu, 09:00 WIB - Ruang Utama Lantai 2",
-                            type = "Kajian Kitab"
+                            address = masjid2Address
                         )
                     }
                 }
@@ -321,69 +321,4 @@ fun MasjidNearbyItem(
     }
 }
 
-@Composable
-fun KajianItem(
-    topic: String,
-    speaker: String,
-    schedule: String,
-    type: String
-) {
-    IslamicGlassCard(
-        modifier = Modifier.fillMaxWidth(),
-        cornerRadius = 10.dp
-    ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = topic,
-                    fontSize = 12.sp,
-                    fontFamily = CinzelFont,
-                    fontWeight = FontWeight.Bold,
-                    color = GoldLight,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    text = type,
-                    fontSize = 9.sp,
-                    fontFamily = NunitoFont,
-                    fontWeight = FontWeight.Bold,
-                    color = TealAccent,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(TealDim.copy(alpha = 0.15f))
-                        .padding(horizontal = 4.dp, vertical = 1.dp)
-                )
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = speaker,
-                fontSize = 11.sp,
-                fontFamily = NunitoFont,
-                fontWeight = FontWeight.SemiBold,
-                color = TextPrimary
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Timer,
-                    contentDescription = null,
-                    tint = GoldPrimary.copy(alpha = 0.6f),
-                    modifier = Modifier.size(10.dp)
-                )
-                Text(
-                    text = schedule,
-                    fontSize = 10.sp,
-                    fontFamily = NunitoFont,
-                    color = TextSecondary
-                )
-            }
-        }
-    }
-}
+

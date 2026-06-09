@@ -145,14 +145,14 @@ abstract class DownloadAssetsTask : DefaultTask() {
         // ── Audio Adzan ────────────────────────────────────────────────────
         // Beberapa URL fallback — dicoba berurutan jika yang pertama gagal
         val adzanUrls = listOf(
+            "https://www.islamcan.com/audio/adhans/adhan1.mp3",
             "https://archive.org/download/adhan_202206/adhan.mp3",
-            "https://islamicsounds.net/adhan/mecca-adhan.mp3",
-            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" // placeholder terakhir
+            "https://islamicsounds.net/adhan/mecca-adhan.mp3"
         )
         val adzanFajrUrls = listOf(
+            "https://www.islamcan.com/audio/adhans/adhan10.mp3",
             "https://archive.org/download/AzanMadinah_201712/azan_madinah.mp3",
-            "https://archive.org/download/adhan_202206/adhan.mp3",
-            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"
+            "https://archive.org/download/adhan_202206/adhan.mp3"
         )
 
         downloadWithFallback(
@@ -265,19 +265,23 @@ abstract class DownloadAssetsTask : DefaultTask() {
         }
 
         // Semua URL gagal
-        throw org.gradle.api.GradleException(
-            """
-            ════════════════════════════════════════════════════════════
-            ✗ BUILD GAGAL: Tidak dapat mengunduh $description
-            Error terakhir: $lastError
-            
-            Solusi:
-            1. Periksa koneksi internet, lalu jalankan: ./gradlew downloadAssets
-            2. Atau unduh manual dan simpan ke:
-               ${dest.absolutePath}
-            ════════════════════════════════════════════════════════════
-            """.trimIndent()
-        )
+        if (!isAudio) {
+            throw org.gradle.api.GradleException(
+                """
+                ════════════════════════════════════════════════════════════
+                ✗ BUILD GAGAL: Tidak dapat mengunduh $description
+                Error terakhir: $lastError
+                
+                Solusi:
+                1. Periksa koneksi internet, lalu jalankan: ./gradlew downloadAssets
+                2. Atau unduh manual dan simpan ke:
+                   ${dest.absolutePath}
+                ════════════════════════════════════════════════════════════
+                """.trimIndent()
+            )
+        } else {
+            println("⚠️ PERINGATAN: Gagal mengunduh file adzan $description karena ($lastError). Pemutar adzan akan fallback menggunakan ringtone alarm sistem secara otomatis.")
+        }
     }
 }
 
