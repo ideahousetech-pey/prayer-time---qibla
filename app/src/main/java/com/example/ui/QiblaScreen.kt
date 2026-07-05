@@ -35,6 +35,10 @@ import androidx.compose.ui.unit.sp
 import id.ideahousetech.prayertime_qibla.service.QiblaService
 import id.ideahousetech.prayertime_qibla.ui.theme.*
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
+import id.ideahousetech.prayertime_qibla.viewmodel.QiblaViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -43,14 +47,14 @@ import kotlin.math.sqrt
 @Composable
 fun QiblaScreen(
     locationViewModel: LocationViewModel,
+    qiblaViewModel: QiblaViewModel,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val qiblaService = remember { QiblaService(context) }
-    val azimuth by qiblaService.azimuthFlow.collectAsState()
+    val azimuth by qiblaViewModel.azimuthFlow.collectAsState()
     val userLocation by locationViewModel.userLocation.collectAsState()
-    val sensorAccuracy by qiblaService.sensorAccuracy.collectAsState()
+    val sensorAccuracy by qiblaViewModel.sensorAccuracy.collectAsState()
 
     var hasCalibratedOnce by remember { mutableStateOf(false) }
     var dismissBanner by remember { mutableStateOf(false) }
@@ -61,27 +65,66 @@ fun QiblaScreen(
         }
     }
 
-    DisposableEffect(Unit) {
-        qiblaService.startListening()
+    // Menggunakan LifecycleObserver untuk mengaktifkan sensor saat ON_RESUME dan menonaktifkannya saat ON_PAUSE
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                qiblaViewModel.startListening()
+            } else if (event == Lifecycle.Event.ON_PAUSE) {
+                qiblaViewModel.stopListening()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
-            qiblaService.stopListening()
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            qiblaViewModel.stopListening()
         }
     }
 
-    val lat = userLocation?.latitude ?: -6.175115
-    val lon = userLocation?.longitude ?: 106.827157
+    // Mengoptimalkan kalkulasi bearing dan jarak agar tidak dijalankan pada setiap frame perubahan azimuth
+    val qiblaBearing = remember(userLocation) {
+        val lat = userLocation?.latitude ?: -6.175115
+        val lon = userLocation?.longitude ?: 106.827157
+        qiblaViewModel.calculateQiblaDirection(lat, lon)
+    }
 
-    val qiblaBearing = qiblaService.calculateQiblaDirection(lat, lon)
-    val distanceToKabah = calculateDistanceToKabah(lat, lon)
+    val distanceToKabah = remember(userLocation) {
+        val lat = userLocation?.latitude ?: -6.175115
+        val lon = userLocation?.longitude ?: 106.827157
+        calculateDistanceToKabah(lat, lon)
+    }
 
     // Arah rotasi murni jarum kompas terhadap utara magnetik
     val bearing = qiblaBearing - azimuth
 
-    // Animasi rotasi pegas (spring) yang luwes
+    // Fungsi helper untuk menghitung sudut terpendek (shortest path) guna mengatasi wrap-around 0/360 derajat
+    fun getShortestAngle(target: Float, current: Float): Float {
+        val diff = (target - current) % 360f
+        val shortestDiff = when {
+            diff > 180f -> diff - 360f
+            diff < -180f -> diff + 360f
+            else -> diff
+        }
+        return current + shortestDiff
+    }
+
+    var continuousBearing by remember { mutableStateOf(bearing.toFloat()) }
+    var continuousAzimuth by remember { mutableStateOf(-azimuth) }
+
+    LaunchedEffect(bearing) {
+        continuousBearing = getShortestAngle(bearing.toFloat(), continuousBearing)
+    }
+
+    LaunchedEffect(azimuth) {
+        continuousAzimuth = getShortestAngle(-azimuth, continuousAzimuth)
+    }
+
+    // Animasi rotasi pegas (spring) yang luwes tanpa efek memantul liar (DampingRatioNoBouncy seperti kompas minyak)
     val animatedRotation by animateFloatAsState(
-        targetValue  = bearing.toFloat(),
+        targetValue  = continuousBearing,
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
+            dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness    = Spring.StiffnessLow
         ),
         label = "compassRotation"
@@ -89,9 +132,9 @@ fun QiblaScreen(
 
     // Animasi rotasi arah Utara
     val animatedNorthRotation by animateFloatAsState(
-        targetValue  = (-azimuth).toFloat(),
+        targetValue  = continuousAzimuth,
         animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
+            dampingRatio = Spring.DampingRatioNoBouncy,
             stiffness    = Spring.StiffnessLow
         ),
         label = "northRotation"

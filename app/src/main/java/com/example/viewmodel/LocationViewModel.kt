@@ -6,6 +6,8 @@ import android.location.Location
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import id.ideahousetech.prayertime_qibla.service.LocationService
+import id.ideahousetech.prayertime_qibla.utils.getDouble
+import id.ideahousetech.prayertime_qibla.utils.putDouble
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -84,8 +86,8 @@ class LocationViewModel(context: Context) : ViewModel() {
         
         prefs.edit().apply {
             putBoolean("is_manual_location", true)
-            putFloat("cached_lat", lat.toFloat())
-            putFloat("cached_lon", lon.toFloat())
+            putDouble("cached_lat", lat)
+            putDouble("cached_lon", lon)
             putString("cached_address", cityName)
             apply()
         }
@@ -107,8 +109,8 @@ class LocationViewModel(context: Context) : ViewModel() {
      */
     private fun saveLocationToCache(lat: Double, lon: Double, address: String) {
         prefs.edit().apply {
-            putFloat("cached_lat", lat.toFloat())
-            putFloat("cached_lon", lon.toFloat())
+            putDouble("cached_lat", lat)
+            putDouble("cached_lon", lon)
             putString("cached_address", address)
             apply()
         }
@@ -121,8 +123,8 @@ class LocationViewModel(context: Context) : ViewModel() {
      * Default fallback ke Koordinat Jakarta Pusat jika cache kosong.
      */
     private fun loadCachedLocation() {
-        val lat = prefs.getFloat("cached_lat", -6.175115f).toDouble() // Monas Jakarta
-        val lon = prefs.getFloat("cached_lon", 106.827157f).toDouble()
+        val lat = prefs.getDouble("cached_lat", -6.175115) // Monas Jakarta
+        val lon = prefs.getDouble("cached_lon", 106.827157)
         val address = prefs.getString("cached_address", "Menteng, Jakarta Pusat") ?: "Menteng, Jakarta Pusat"
 
         val mockLoc = Location("cached").apply {

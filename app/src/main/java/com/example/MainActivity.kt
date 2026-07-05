@@ -77,6 +77,7 @@ import id.ideahousetech.prayertime_qibla.ui.theme.MidnightLayer
 import id.ideahousetech.prayertime_qibla.ui.theme.GoldPrimary
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
 import id.ideahousetech.prayertime_qibla.viewmodel.PrayerViewModel
+import id.ideahousetech.prayertime_qibla.viewmodel.QiblaViewModel
 import id.ideahousetech.prayertime_qibla.ui.ExploreScreen
 import id.ideahousetech.prayertime_qibla.ui.ProfileScreen
 import id.ideahousetech.prayertime_qibla.ui.SettingsScreen
@@ -111,6 +112,7 @@ class MainActivity : ComponentActivity() {
             val locationViewModel = remember { LocationViewModel(context.applicationContext) }
             val prayerViewModel = remember { PrayerViewModel(context.applicationContext) }
             val trackerViewModel = remember { id.ideahousetech.prayertime_qibla.viewmodel.PrayerTrackerViewModel(context.applicationContext) }
+            val qiblaViewModel = remember { QiblaViewModel(context.applicationContext) }
 
             var showSplash by remember { mutableStateOf(true) }
             var showOnboarding by remember {
@@ -136,7 +138,8 @@ class MainActivity : ComponentActivity() {
                     MainLayout(
                         locationViewModel = locationViewModel,
                         prayerViewModel = prayerViewModel,
-                        trackerViewModel = trackerViewModel
+                        trackerViewModel = trackerViewModel,
+                        qiblaViewModel = qiblaViewModel
                     )
                 }
             }
@@ -165,7 +168,8 @@ enum class AppScreen(val title: String, val icon: ImageVector) {
 fun MainLayout(
     locationViewModel: LocationViewModel,
     prayerViewModel: PrayerViewModel,
-    trackerViewModel: id.ideahousetech.prayertime_qibla.viewmodel.PrayerTrackerViewModel
+    trackerViewModel: id.ideahousetech.prayertime_qibla.viewmodel.PrayerTrackerViewModel,
+    qiblaViewModel: QiblaViewModel
 ) {
     val context = LocalContext.current
     var currentScreen by remember { mutableStateOf(AppScreen.SHOLAT) }
@@ -348,6 +352,7 @@ fun MainLayout(
                     }
                     AppScreen.KIBLAT -> QiblaScreen(
                         locationViewModel = locationViewModel,
+                        qiblaViewModel = qiblaViewModel,
                         onBackClick = { navigateBack() }
                     )
                     AppScreen.KALENDER -> CalendarScreen(

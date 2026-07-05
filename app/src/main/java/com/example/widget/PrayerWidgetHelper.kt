@@ -12,6 +12,7 @@ import id.ideahousetech.prayertime_qibla.R
 import id.ideahousetech.prayertime_qibla.model.PrayerTime
 import id.ideahousetech.prayertime_qibla.service.PrayerService
 import id.ideahousetech.prayertime_qibla.utils.HijriDateUtils
+import id.ideahousetech.prayertime_qibla.utils.getDouble
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -150,8 +151,8 @@ object PrayerWidgetHelper {
 
             // Tarik info lokasi ter-cache
             val cachePrefs = context.getSharedPreferences("user_location_cache", Context.MODE_PRIVATE)
-            val lat = cachePrefs.getFloat("cached_lat", -6.175115f).toDouble()
-            val lon = cachePrefs.getFloat("cached_lon", 106.827157f).toDouble()
+            val lat = cachePrefs.getDouble("cached_lat", -6.175115)
+            val lon = cachePrefs.getDouble("cached_lon", 106.827157)
             val address = cachePrefs.getString("cached_address", "Menteng, Jakarta Pusat") ?: "Menteng, Jakarta Pusat"
 
             // Hitung jadwal sholat luring untuk hari ini

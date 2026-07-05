@@ -29,6 +29,12 @@ class QiblaService(context: Context) : SensorEventListener {
     private var hasGravity = false
     private var hasGeomagnetic = false
 
+    // State penyaringan Low-Pass Filter berbasis vektor 2D
+    private var smoothedCos = 0.0
+    private var smoothedSin = 0.0
+    private var hasSmoothed = false
+    private val ALPHA = 0.15f // Koefisien penyaringan (makin kecil makin halus, rekomendasi: 0.1 - 0.3)
+
     // State flow untuk memancarkan arah hadap perangkat (azimuth) secara realtime ke UI Compose
     private val _azimuthFlow = MutableStateFlow(0f)
     val azimuthFlow: StateFlow<Float> = _azimuthFlow
@@ -64,6 +70,7 @@ class QiblaService(context: Context) : SensorEventListener {
         sensorManager.unregisterListener(this)
         hasGravity = false
         hasGeomagnetic = false
+        hasSmoothed = false
     }
 
     /**
@@ -111,8 +118,23 @@ class QiblaService(context: Context) : SensorEventListener {
                     val orientation = FloatArray(3)
                     SensorManager.getOrientation(rMatrix, orientation)
                     
-                    // orientation[0] adalah azimuth dalam satuan radian (hadapan perangkat relative utara)
-                    var azimuthDeg = Math.toDegrees(orientation[0].toDouble()).toFloat()
+                    // Menggunakan Low-Pass Filter berbasis vektor 2D untuk memuluskan pembacaan azimuth kompas
+                    // tanpa efek patah (discontinuity) saat melewati batas sudut 0/360 derajat.
+                    val rad = orientation[0].toDouble()
+                    val currentCos = cos(rad)
+                    val currentSin = sin(rad)
+
+                    if (!hasSmoothed) {
+                        smoothedCos = currentCos
+                        smoothedSin = currentSin
+                        hasSmoothed = true
+                    } else {
+                        smoothedCos = ALPHA * currentCos + (1.0 - ALPHA) * smoothedCos
+                        smoothedSin = ALPHA * currentSin + (1.0 - ALPHA) * smoothedSin
+                    }
+
+                    val smoothedRad = atan2(smoothedSin, smoothedCos)
+                    var azimuthDeg = Math.toDegrees(smoothedRad).toFloat()
                     azimuthDeg = (azimuthDeg + 360f) % 360f
                     
                     // Kirimkan nilai sudut terbaru secara halus ke subscriber

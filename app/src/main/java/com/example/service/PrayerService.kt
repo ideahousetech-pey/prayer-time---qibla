@@ -227,6 +227,50 @@ class PrayerService(private val context: Context) {
     }
 
     /**
+     * Menghitung waktu Ashar secara astronomis berdasarkan koordinat latitude,
+     * sudut deklinasi matahari, waktu dzuhur dasar, dan faktor bayangan mazhab (shadow factor).
+     *
+     * Rumus Matematika Astronomis:
+     * 1. Selisih deklinasi: diff = |latitude - declination|
+     * 2. Sudut elevasi matahari (altitude) saat Ashar:
+     *    altitude = atan(1 / (shadowFactor + tan(diff)))
+     * 3. Sudut Jam (Hour Angle, H) dihitung dengan:
+     *    cos(H) = (sin(altitude) - sin(latitude) * sin(declination)) / (cos(latitude) * cos(declination))
+     * 4. Waktu Ashar = baseDhuhr + (H / 15.0)
+     */
+    fun calculateAsrTime(
+        latitude: Double,
+        declination: Double,
+        baseDhuhr: Double,
+        shadowFactor: Int = 1
+    ): Double {
+        // Tangani lokasi ekstrem untuk mencegah pembagian dengan nol atau deviasi berlebih
+        val latClamped = latitude.coerceIn(-60.0, 60.0)
+        
+        val radLat = Math.toRadians(latClamped)
+        val radDecl = Math.toRadians(declination)
+        
+        // Selisih sudut absolut latitude dan declination dalam radian
+        val diffRad = Math.abs(radLat - radDecl)
+        
+        // Hitung sudut elevasi matahari (altitude) dalam radian
+        val altRad = Math.atan(1.0 / (shadowFactor.toDouble() + tan(diffRad)))
+        
+        // Hitung nilai cosinus Hour Angle (H)
+        val cosHA = (sin(altRad) - sin(radLat) * sin(radDecl)) / (cos(radLat) * cos(radDecl))
+        
+        // Tangani edge case jika pembagian menghasilkan NaN atau tak terhingga
+        if (cosHA.isNaN() || cosHA.isInfinite()) {
+            return baseDhuhr + 3.1 // Fallback default (~3 jam 6 menit setelah Dzuhur)
+        }
+        
+        val clampedCosHA = cosHA.coerceIn(-1.0, 1.0)
+        val haDeg = Math.toDegrees(acos(clampedCosHA))
+        
+        return baseDhuhr + (haDeg / 15.0)
+    }
+
+    /**
      * Perhitungan astronomis lokal manual (Offline Fallback)
      * Menggunakan metode geometri bola astronomi standard waktu sholat untuk presisi 100% luring.
      */
@@ -288,12 +332,8 @@ class PrayerService(private val context: Context) {
             val hourAngleIsha = getHourAngle(-18.0, latitude, declination)
             val ishaTimeAndHour = baseDhuhr + (hourAngleIsha / 15.0)
 
-            // Hitung Ashar dng Sudut Shafi (tan(height) = 1 + tan(abs(latitude - declination)))
-            val asrDeclDiff = Math.abs(latitude - declination)
-            val asrAltitude = Math.toDegrees(acos(sin(Math.toRadians(asrDeclDiff)))) // perkiraan
-            val asrAngleVal = Math.toDegrees(atanAngle(1.0 + tan(Math.toRadians(asrDeclDiff))))
-            val hourAngleAsr = getHourAngle(asrAngleVal, latitude, declination)
-            val asrTimeAndHour = baseDhuhr + (hourAngleAsr / 15.0)
+            // Hitung Ashar menggunakan fungsi astronomis yang disempurnakan (Mazhab Syafi'i)
+            val asrTimeAndHour = calculateAsrTime(latitude, declination, baseDhuhr, 1)
 
             val sharedPrefs = SecurePrefs.get(context)
             val offsetVal = sharedPrefs.getInt("prayer_time_offset", 0)
