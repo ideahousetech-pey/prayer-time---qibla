@@ -46,3 +46,13 @@ class QiblaViewModel(context: Context) : ViewModel() {
         qiblaService.stopListening()
     }
 }
+
+class QiblaViewModelFactory(private val context: Context) : androidx.lifecycle.ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(QiblaViewModel::class.java)) {
+            return QiblaViewModel(context.applicationContext) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
+}

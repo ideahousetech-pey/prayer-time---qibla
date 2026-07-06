@@ -21,8 +21,8 @@ import kotlinx.coroutines.launch
 class LocationViewModel(context: Context) : ViewModel() {
 
     private val appContext = context.applicationContext
-    private val locationService = LocationService(context)
-    private val prefs: SharedPreferences = context.getSharedPreferences("user_location_cache", Context.MODE_PRIVATE)
+    private val locationService = LocationService(appContext)
+    private val prefs: SharedPreferences = appContext.getSharedPreferences("user_location_cache", Context.MODE_PRIVATE)
 
     // State lokasi koordinat
     private val _userLocation = MutableStateFlow<Location?>(null)
@@ -133,5 +133,15 @@ class LocationViewModel(context: Context) : ViewModel() {
         }
         _userLocation.value = mockLoc
         _locationName.value = address
+    }
+}
+
+class LocationViewModelFactory(private val context: Context) : androidx.lifecycle.ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(LocationViewModel::class.java)) {
+            return LocationViewModel(context.applicationContext) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

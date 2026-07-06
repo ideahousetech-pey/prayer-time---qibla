@@ -27,10 +27,11 @@ import java.util.Locale
  * perhitungan hitung mundur hitungan detik presisi luring, penentuan urutan sholat selanjutnya,
  * serta notifikasi popup hari besar Islam yang relevan.
  */
-class PrayerViewModel(private val context: Context) : ViewModel() {
+class PrayerViewModel(context: Context) : ViewModel() {
 
-    private val prayerService = PrayerService(context)
-    private val notificationService = NotificationService(context)
+    private val appContext = context.applicationContext
+    private val prayerService = PrayerService(appContext)
+    private val notificationService = NotificationService(appContext)
 
     // State list bulanan 30 hari kedepan
     private val _monthlySchedule = MutableStateFlow<List<PrayerTime>>(emptyList())
@@ -145,7 +146,7 @@ class PrayerViewModel(private val context: Context) : ViewModel() {
         todayData?.let { notificationService.scheduleDailyAlarms(it) }
         
         // Update widget layar utama agar sinkron dengan jadwal baru
-        id.ideahousetech.prayertime_qibla.widget.PrayerWidgetHelper.updateAllWidgets(context)
+        id.ideahousetech.prayertime_qibla.widget.PrayerWidgetHelper.updateAllWidgets(appContext)
     }
 
     /**
@@ -294,5 +295,15 @@ class PrayerViewModel(private val context: Context) : ViewModel() {
     override fun onCleared() {
         super.onCleared()
         countdownJob?.cancel()
+    }
+}
+
+class PrayerViewModelFactory(private val context: Context) : androidx.lifecycle.ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(PrayerViewModel::class.java)) {
+            return PrayerViewModel(context.applicationContext) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

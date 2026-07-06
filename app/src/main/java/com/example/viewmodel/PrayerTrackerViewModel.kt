@@ -23,9 +23,10 @@ import java.util.*
  */
 class PrayerTrackerViewModel(context: Context) : ViewModel() {
 
-    private val db = AppDatabase.getInstance(context)
+    private val appContext = context.applicationContext
+    private val db = AppDatabase.getInstance(appContext)
     private val repository = PrayerTrackerRepository(db.prayerTrackerDao())
-    private val prefs = id.ideahousetech.prayertime_qibla.utils.SecurePrefs.get(context)
+    private val prefs = id.ideahousetech.prayertime_qibla.utils.SecurePrefs.get(appContext)
 
     private val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
@@ -646,5 +647,15 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
         activeDaysCount = 0, unlockedBadgesCount = 0, bestStreakThisMonth = 0, primaryAchievedMilestone = "Pencari Hidayah",
         generalAssessment = "Mulai mencatatkan aktivitas sholat Anda untuk memperoleh insight spiritual bulanan."
     )
+}
+
+class PrayerTrackerViewModelFactory(private val context: Context) : androidx.lifecycle.ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(PrayerTrackerViewModel::class.java)) {
+            return PrayerTrackerViewModel(context.applicationContext) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
+    }
 }
 

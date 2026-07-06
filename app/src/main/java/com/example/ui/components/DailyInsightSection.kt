@@ -37,6 +37,7 @@ import id.ideahousetech.prayertime_qibla.model.InsightType
 import id.ideahousetech.prayertime_qibla.ui.theme.*
 import id.ideahousetech.prayertime_qibla.viewmodel.DailyInsightUiState
 import id.ideahousetech.prayertime_qibla.viewmodel.DailyInsightViewModel
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 /**
  * Komponen UI Utama untuk menampilkan sistem Daily Insight dengan gaya Islamic Luxury yang disederhanakan.
@@ -45,7 +46,7 @@ import id.ideahousetech.prayertime_qibla.viewmodel.DailyInsightViewModel
  */
 @Composable
 fun DailyInsightSection(
-    viewModel: DailyInsightViewModel = remember { DailyInsightViewModel() },
+    viewModel: DailyInsightViewModel = viewModel(),
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()

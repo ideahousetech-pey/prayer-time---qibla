@@ -76,8 +76,14 @@ import id.ideahousetech.prayertime_qibla.ui.theme.DeepNight
 import id.ideahousetech.prayertime_qibla.ui.theme.MidnightLayer
 import id.ideahousetech.prayertime_qibla.ui.theme.GoldPrimary
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
+import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModelFactory
 import id.ideahousetech.prayertime_qibla.viewmodel.PrayerViewModel
+import id.ideahousetech.prayertime_qibla.viewmodel.PrayerViewModelFactory
 import id.ideahousetech.prayertime_qibla.viewmodel.QiblaViewModel
+import id.ideahousetech.prayertime_qibla.viewmodel.QiblaViewModelFactory
+import id.ideahousetech.prayertime_qibla.viewmodel.PrayerTrackerViewModel
+import id.ideahousetech.prayertime_qibla.viewmodel.PrayerTrackerViewModelFactory
+import androidx.lifecycle.viewmodel.compose.viewModel
 import id.ideahousetech.prayertime_qibla.ui.ExploreScreen
 import id.ideahousetech.prayertime_qibla.ui.ProfileScreen
 import id.ideahousetech.prayertime_qibla.ui.SettingsScreen
@@ -108,11 +114,11 @@ class MainActivity : ComponentActivity() {
             // Reactive theme tracking from our central singleton
             val themeMode = id.ideahousetech.prayertime_qibla.ui.theme.AppThemeState.currentThemeMode.value
 
-            // Inisialisasi ViewModel secara mandiri
-            val locationViewModel = remember { LocationViewModel(context.applicationContext) }
-            val prayerViewModel = remember { PrayerViewModel(context.applicationContext) }
-            val trackerViewModel = remember { id.ideahousetech.prayertime_qibla.viewmodel.PrayerTrackerViewModel(context.applicationContext) }
-            val qiblaViewModel = remember { QiblaViewModel(context.applicationContext) }
+            // Inisialisasi ViewModel secara mandiri menggunakan Factory untuk kelayakan siklus hidup & pencegahan context leak
+            val locationViewModel: LocationViewModel = viewModel(factory = LocationViewModelFactory(context))
+            val prayerViewModel: PrayerViewModel = viewModel(factory = PrayerViewModelFactory(context))
+            val trackerViewModel: PrayerTrackerViewModel = viewModel(factory = PrayerTrackerViewModelFactory(context))
+            val qiblaViewModel: QiblaViewModel = viewModel(factory = QiblaViewModelFactory(context))
 
             var showSplash by remember { mutableStateOf(true) }
             var showOnboarding by remember {
