@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -101,43 +102,50 @@ class PrayerViewModel(private val context: Context) : ViewModel() {
      * Menarik ulang jadwal sholat bulanan dari API atau lokal astronomi kalkulator berdasarkan koordinat posisi GPS baru.
      */
     fun loadPrayerTimesForLocation(lat: Double, lon: Double) {
-        viewModelScope.launch(Dispatchers.IO) {
-            val cal = Calendar.getInstance()
-            val currentMonth = cal.get(Calendar.MONTH) + 1
-            val currentYear = cal.get(Calendar.YEAR)
-            val currentDay = cal.get(Calendar.DAY_OF_MONTH)
+        viewModelScope.launch {
+            try {
+                val cal = Calendar.getInstance()
+                val currentMonth = cal.get(Calendar.MONTH) + 1
+                val currentYear = cal.get(Calendar.YEAR)
+                val currentDay = cal.get(Calendar.DAY_OF_MONTH)
 
-            // Tarik jadwal bulanan
-            val schedule = prayerService.getMonthlyPrayerTimes(lat, lon, currentMonth, currentYear)
-            if (schedule.isNotEmpty()) {
-                _monthlySchedule.value = schedule
-                
-                // Cari jadwal untuk hari ini (biasanya berindeks ke day-1)
-                val dayIndex = if (schedule.isNotEmpty()) (currentDay - 1).coerceIn(0, schedule.size - 1) else 0
-                val todayData = if (schedule.isNotEmpty()) schedule[dayIndex] else null
-                _todaySchedule.value = todayData
+                // Tarik jadwal bulanan secara asinkron di IO thread, menggunakan data online dengan fallback offline
+                val schedule = withContext(Dispatchers.IO) {
+                    try {
+                        prayerService.getMonthlyPrayerTimes(lat, lon, currentMonth, currentYear)
+                            .takeIf { it.isNotEmpty() }
+                            ?: prayerService.calculateOfflineMonthlyPrayerTimes(lat, lon, currentMonth, currentYear)
+                    } catch (e: Exception) {
+                        Log.e("PrayerViewModel", "Error fetching online prayer times; falling back to offline", e)
+                        prayerService.calculateOfflineMonthlyPrayerTimes(lat, lon, currentMonth, currentYear)
+                    }
+                }
 
-                // Mengaktifkan alarm adzan harian lewat NotificationService
-                launch(Dispatchers.Main) {
-                    todayData?.let { notificationService.scheduleDailyAlarms(it) }
-                    // Update widget layar utama agar sinkron dengan jadwal baru
-                    id.ideahousetech.prayertime_qibla.widget.PrayerWidgetHelper.updateAllWidgets(context)
-                }
-            } else {
-                // Total fallback dari perhitungan astronomis lokal langsung
-                val localSchedule = prayerService.calculateOfflineMonthlyPrayerTimes(lat, lon, currentMonth, currentYear)
-                _monthlySchedule.value = localSchedule
-                val dayIndex = if (localSchedule.isNotEmpty()) (currentDay - 1).coerceIn(0, localSchedule.size - 1) else 0
-                val todayData = if (localSchedule.isNotEmpty()) localSchedule[dayIndex] else null
-                _todaySchedule.value = todayData
-                
-                launch(Dispatchers.Main) {
-                    todayData?.let { notificationService.scheduleDailyAlarms(it) }
-                    // Update widget layar utama agar sinkron dengan jadwal baru
-                    id.ideahousetech.prayertime_qibla.widget.PrayerWidgetHelper.updateAllWidgets(context)
-                }
+                // Terapkan hasil jadwal ke state UI dan aktifkan alarm di Main thread (konteks launch saat ini)
+                applySchedule(schedule, currentDay)
+            } catch (e: Exception) {
+                Log.e("PrayerViewModel", "Gagal memproses pembaruan jadwal sholat", e)
             }
         }
+    }
+
+    /**
+     * Menerapkan jadwal sholat yang berhasil ditarik ke StateFlow dan mendaftarkan alarm harian.
+     * Dipanggil secara aman pada Main thread.
+     */
+    private suspend fun applySchedule(schedule: List<PrayerTime>, currentDay: Int) {
+        _monthlySchedule.value = schedule
+        
+        // Cari jadwal untuk hari ini (biasanya berindeks ke day-1)
+        val dayIndex = if (schedule.isNotEmpty()) (currentDay - 1).coerceIn(0, schedule.size - 1) else 0
+        val todayData = if (schedule.isNotEmpty()) schedule[dayIndex] else null
+        _todaySchedule.value = todayData
+
+        // Mengaktifkan alarm adzan harian lewat NotificationService secara asinkron/aman
+        todayData?.let { notificationService.scheduleDailyAlarms(it) }
+        
+        // Update widget layar utama agar sinkron dengan jadwal baru
+        id.ideahousetech.prayertime_qibla.widget.PrayerWidgetHelper.updateAllWidgets(context)
     }
 
     /**

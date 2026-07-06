@@ -25,6 +25,7 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
 
     private val db = AppDatabase.getInstance(context)
     private val repository = PrayerTrackerRepository(db.prayerTrackerDao())
+    private val prefs = id.ideahousetech.prayertime_qibla.utils.SecurePrefs.get(context)
 
     private val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
@@ -41,10 +42,22 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
     val allTrackers: StateFlow<List<PrayerTracker>> = repository.getAllTrackersFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // State flow untuk memantau status strict/lenient secara reaktif
+    private val _isStrictMode = MutableStateFlow(prefs.getBoolean("streak_strict_mode", false))
+    val isStrictMode: StateFlow<Boolean> = _isStrictMode.asStateFlow()
+
+    /**
+     * Memperbarui mode kalkulasi streak (strict vs lenient) secara reaktif.
+     */
+    fun updateStrictMode(enabled: Boolean) {
+        prefs.edit().putBoolean("streak_strict_mode", enabled).apply()
+        _isStrictMode.value = enabled
+    }
+
     // Pasokan live data streak berturut-turut aktif
-    val streakCount: StateFlow<Int> = allTrackers
-        .map { list -> calculateActiveStreak(list) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+    val streakCount: StateFlow<Int> = combine(allTrackers, _isStrictMode) { list, isStrict ->
+        calculateActiveStreak(list, isStrict)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     // Pasokan live data streak terbaik historis
     val bestStreakCount: StateFlow<Int> = allTrackers
@@ -142,16 +155,45 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
     }
 
     /**
-     * Mengkalkulasi streak hari ibadah penuh secara beruntun.
+     * Mengonversi string tanggal "yyyy-MM-dd" menjadi nomor hari Julian secara matematis murni.
+     * Pendekatan ini sangat cepat tanpa SimpleDateFormat parsing ataupun alokasi objek Date.
      */
-    private fun calculateActiveStreak(trackers: List<PrayerTracker>): Int {
+    fun toJulianDayNumber(dateStr: String): Int {
+        val parts = dateStr.split("-")
+        if (parts.size != 3) return 0
+        val year = parts[0].toIntOrNull() ?: return 0
+        val month = parts[1].toIntOrNull() ?: return 0
+        val day = parts[2].toIntOrNull() ?: return 0
+
+        // Algoritma konversi standar kalender Gregorian ke Julian Day Number (JDN)
+        val a = (14 - month) / 12
+        val y = year + 4800 - a
+        val m = month + 12 * a - 3
+        return day + (153 * m + 2) / 5 + 365 * y + y / 4 - y / 100 + y / 400 - 32045
+    }
+
+    private val MAX_STREAK_CHECK_DAYS = 365
+
+    /**
+     * Mengkalkulasi streak hari ibadah penuh secara beruntun dengan pilihan strict atau lenient.
+     * @param useStrict true untuk mode ketat (tidak ada record dianggap streak putus),
+     *                  false untuk mode toleran (tidak ada record dilewati, streak tetap hidup).
+     */
+    fun calculateActiveStreak(trackers: List<PrayerTracker>, useStrict: Boolean = false): Int {
+        return if (useStrict) {
+            calculateActiveStreakStrict(trackers)
+        } else {
+            calculateActiveStreakLenient(trackers)
+        }
+    }
+
+    private fun calculateActiveStreakStrict(trackers: List<PrayerTracker>): Int {
         if (trackers.isEmpty()) return 0
         
         val trackerMap = trackers.associateBy { it.date }
         var streak = 0
         val cal = Calendar.getInstance()
         
-        // Cek hari ini
         val todayStr = sdf.format(cal.time)
         val todayTracker = trackerMap[todayStr]
         
@@ -163,14 +205,69 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
         }
 
         var checkStr = sdf.format(startCal.time)
-        while (trackerMap.containsKey(checkStr)) {
-            val tracker = trackerMap[checkStr]!!
-            if (tracker.isFullyCompleted()) {
+        var daysChecked = 0
+        
+        while (daysChecked < MAX_STREAK_CHECK_DAYS) {
+            val tracker = trackerMap[checkStr]
+            if (tracker != null && tracker.isFullyCompleted()) {
                 streak++
                 startCal.add(Calendar.DAY_OF_YEAR, -1)
                 checkStr = sdf.format(startCal.time)
+                daysChecked++
             } else {
-                // Break bila ada hari bolong di tengah masa kebiasaan
+                // Strict: tidak ada record atau tidak tuntas = langsung putus!
+                break
+            }
+        }
+        return streak
+    }
+
+    private fun calculateActiveStreakLenient(trackers: List<PrayerTracker>): Int {
+        if (trackers.isEmpty()) return 0
+        
+        val trackerMap = trackers.associateBy { it.date }
+        
+        // Temukan batas tanggal paling awal yang tersimpan di DB agar pencarian tidak mubazir mundur 365 hari penuh
+        val julianDays = trackers.map { toJulianDayNumber(it.date) }.filter { it > 0 }
+        if (julianDays.isEmpty()) return 0
+        val minJulianDay = julianDays.minOrNull() ?: 0
+
+        var streak = 0
+        val cal = Calendar.getInstance()
+        
+        val todayStr = sdf.format(cal.time)
+        val todayTracker = trackerMap[todayStr]
+        
+        // Bila hari ini belum tuntas, cek apakah kemarin tuntas untuk menjaga streak tetap hidup
+        val startCal = if (todayTracker != null && todayTracker.isFullyCompleted()) {
+            cal
+        } else {
+            Calendar.getInstance().apply { add(Calendar.DAY_OF_YEAR, -1) }
+        }
+
+        var checkStr = sdf.format(startCal.time)
+        var daysChecked = 0
+        
+        while (daysChecked < MAX_STREAK_CHECK_DAYS) {
+            val currentJulian = toJulianDayNumber(checkStr)
+            if (currentJulian < minJulianDay) {
+                // Sudah melebihi batas data historis paling awal di database, hentikan pencarian
+                break
+            }
+            
+            val tracker = trackerMap[checkStr]
+            if (tracker == null) {
+                // Lenient: tidak ada record = dilewati (tidak dihitung putus), lanjut periksa hari kemarin
+                startCal.add(Calendar.DAY_OF_YEAR, -1)
+                checkStr = sdf.format(startCal.time)
+                daysChecked++
+            } else if (tracker.isFullyCompleted()) {
+                streak++
+                startCal.add(Calendar.DAY_OF_YEAR, -1)
+                checkStr = sdf.format(startCal.time)
+                daysChecked++
+            } else {
+                // Ada record tapi tidak penuh/bolong -> streak terputus!
                 break
             }
         }
@@ -179,8 +276,9 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
 
     /**
      * Mengkalkulasi streak terpanjang sepanjang masa secara deterministik.
+     * Sangat efisien dengan perbandingan JDN langsung tanpa SimpleDateFormat parse di dalam loop.
      */
-    private fun calculateBestStreak(trackers: List<PrayerTracker>): Int {
+    fun calculateBestStreak(trackers: List<PrayerTracker>): Int {
         if (trackers.isEmpty()) return 0
         
         // Kelompokkan tanggal lengkap berstatus diselesaikan (100% full)
@@ -193,26 +291,26 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
         
         var maxStreak = 0
         var currentStreak = 0
-        var prevDate: Date? = null
+        var prevJulianDay: Int? = null
         
         for (dateStr in completedDatesSorted) {
-            val currentDate = try { sdf.parse(dateStr) } catch (e: Exception) { null } ?: continue
-            if (prevDate == null) {
+            val currentJulianDay = toJulianDayNumber(dateStr)
+            if (currentJulianDay == 0) continue
+            
+            if (prevJulianDay == null) {
                 currentStreak = 1
             } else {
-                // Kalkulasi selisih hari
-                val diffMs = currentDate.time - prevDate.time
-                val diffDays = diffMs / (1000 * 60 * 60 * 24)
-                if (diffDays <= 1L) {
+                val diffDays = currentJulianDay - prevJulianDay
+                if (diffDays == 1) {
                     currentStreak++
-                } else {
+                } else if (diffDays > 1) {
                     if (currentStreak > maxStreak) {
                         maxStreak = currentStreak
                     }
                     currentStreak = 1
                 }
             }
-            prevDate = currentDate
+            prevJulianDay = currentJulianDay
         }
         if (currentStreak > maxStreak) {
             maxStreak = currentStreak

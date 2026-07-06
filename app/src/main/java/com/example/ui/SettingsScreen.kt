@@ -79,6 +79,7 @@ fun SettingsScreen(
 
     var isAlarmEnabled by remember { mutableStateOf(prefs.getBoolean("enable_adzan_alarm", true)) }
     var isDailyReminderEnabled by remember { mutableStateOf(prefs.getBoolean("enable_daily_reminder", true)) }
+    var isStreakStrict by remember { mutableStateOf(prefs.getBoolean("streak_strict_mode", false)) }
     var prayerOffset by remember { mutableStateOf(prefs.getInt("prayer_time_offset", 0)) }
     var appThemeMode by remember { mutableStateOf(prefs.getString("app_theme_mode", "dark") ?: "dark") }
 
@@ -636,6 +637,48 @@ fun SettingsScreen(
                                         prefs.edit().putBoolean("enable_daily_reminder", checked).apply()
                                         isDailyReminderEnabled = checked
                                         onReminderToggle(checked)
+                                    },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = GoldPrimary,
+                                        checkedTrackColor = TealDim,
+                                        uncheckedThumbColor = TextMuted,
+                                        uncheckedTrackColor = Color.Transparent
+                                    )
+                                )
+                            }
+
+                            HorizontalDivider(color = DividerLine, thickness = 0.5.dp)
+
+                            // Streak Mode (Strict vs Lenient)
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Mode Streak Ketat (Strict)",
+                                        fontSize = 12.sp,
+                                        fontFamily = CinzelFont,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TextPrimary
+                                    )
+                                    Text(
+                                        text = if (isStreakStrict) {
+                                            "Hari tanpa catatan akan memutuskan streak ketaatan Anda."
+                                        } else {
+                                            "Hari tanpa catatan dilewati (tidak memutuskan streak Anda)."
+                                        },
+                                        fontSize = 9.sp,
+                                        fontFamily = NunitoFont,
+                                        color = TextSecondary
+                                    )
+                                }
+                                Switch(
+                                    checked = isStreakStrict,
+                                    onCheckedChange = { checked ->
+                                        prefs.edit().putBoolean("streak_strict_mode", checked).apply()
+                                        isStreakStrict = checked
                                     },
                                     colors = SwitchDefaults.colors(
                                         checkedThumbColor = GoldPrimary,

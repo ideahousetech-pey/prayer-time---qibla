@@ -42,6 +42,7 @@ class NotificationService(private val context: Context) {
     private var wakeLock: PowerManager.WakeLock? = null
     private var audioFocusRequest: AudioFocusRequest? = null
     private val stopHandler = Handler(Looper.getMainLooper())
+    private val isAudioPlaying = java.util.concurrent.atomic.AtomicBoolean(false)
 
     companion object {
         const val CHANNEL_ID       = "islamic_prayer_alarms"
@@ -150,15 +151,32 @@ class NotificationService(private val context: Context) {
     // ── MediaPlayer ──────────────────────────────────────────────────────────
 
     private fun releasePlayer() {
-        stopHandler.removeCallbacksAndMessages(null)
-        mediaPlayer?.apply {
-            try { if (isPlaying) stop() } catch (_: Exception) {}
-            reset()
-            release()
+        if (!isAudioPlaying.compareAndSet(true, false)) {
+            // Sudah dirilis atau tidak sedang memutar adzan
+            return
         }
+
+        stopHandler.removeCallbacksAndMessages(null)
+        
+        // 1. Set mediaPlayer ke null terlebih dahulu untuk menghindari race condition
+        val playerToRelease = mediaPlayer
         mediaPlayer = null
-        releaseAudioFocus()
-        releaseWakeLock()
+        
+        try {
+            playerToRelease?.apply {
+                try {
+                    if (isPlaying) {
+                        stop()
+                    }
+                } catch (_: Exception) {}
+                reset()
+                release()
+            }
+        } finally {
+            // 3. Pastikan WakeLock dan AudioFocus SELALU dirilis di dalam finally block
+            releaseAudioFocus()
+            releaseWakeLock()
+        }
     }
 
     /**
@@ -189,6 +207,9 @@ class NotificationService(private val context: Context) {
             val audioFileName = if (isFajr) "adzan_fajr.mp3" else "adzan.mp3"
 
             val player = MediaPlayer()
+            
+            // Set flag bermain menjadi true dan assign ke global instance
+            isAudioPlaying.set(true)
             mediaPlayer = player
 
             // Atur stream audio ke STREAM_ALARM untuk bypass silent mode
