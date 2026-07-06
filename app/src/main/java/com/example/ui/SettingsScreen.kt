@@ -45,6 +45,9 @@ import id.ideahousetech.prayertime_qibla.ui.theme.*
 import id.ideahousetech.prayertime_qibla.utils.SecurePrefs
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
 import id.ideahousetech.prayertime_qibla.viewmodel.PrayerViewModel
+import id.ideahousetech.prayertime_qibla.service.NotificationService
+import id.ideahousetech.prayertime_qibla.service.PreviewState
+import id.ideahousetech.prayertime_qibla.service.CopyProgress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -91,6 +94,10 @@ fun SettingsScreen(
     var downloadingName by remember { mutableStateOf("") }
 
     val userLocation by locationViewModel.userLocation.collectAsState()
+
+    val notificationService = remember { NotificationService.getInstance(context) }
+    val copyProgressState by notificationService.copyProgress.collectAsState()
+    val previewState by notificationService.previewState.collectAsState()
 
     fun triggerPrayerReload() {
         userLocation?.let {
@@ -244,70 +251,28 @@ fun SettingsScreen(
         }
     }
 
-    var player: MediaPlayer? by remember { mutableStateOf(null) }
     var activePreview by remember { mutableStateOf<String?>(null) } // "umum" or "fajr" or null
 
-    DisposableEffect(Unit) {
-        onDispose {
-            player?.release()
-        }
-    }
-
-    fun playPreview(fileName: String, type: String) {
-        try {
-            player?.stop()
-            player?.release()
-            player = null
-
-            val file = File(context.filesDir, fileName)
-            var sourceSet = false
-            val tempPlayer = MediaPlayer()
-            
-            if (file.exists() && file.length() > 50000) {
-                try {
-                    tempPlayer.setDataSource(file.absolutePath)
-                    sourceSet = true
-                } catch (e: Exception) {}
-            }
-            
-            if (!sourceSet) {
-                try {
-                    context.assets.openFd(fileName).use { afd ->
-                        tempPlayer.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-                        sourceSet = true
-                    }
-                } catch (e: Exception) {}
-            }
-            
-            if (!sourceSet) {
-                try {
-                    val defaultUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
-                    tempPlayer.setDataSource(context, defaultUri)
-                    sourceSet = true
-                } catch (e: Exception) {}
-            }
-            
-            if (sourceSet) {
-                tempPlayer.prepare()
-                tempPlayer.start()
-                tempPlayer.setOnCompletionListener {
-                    activePreview = null
-                }
-                player = tempPlayer
-                activePreview = type
-            } else {
-                Toast.makeText(context, "Gagal memutar adzan.", Toast.LENGTH_SHORT).show()
-            }
-        } catch (e: Exception) {
-            Toast.makeText(context, "Gagal memutar: ${e.message}", Toast.LENGTH_SHORT).show()
+    LaunchedEffect(previewState) {
+        if (previewState is PreviewState.Ready) {
             activePreview = null
         }
     }
 
+    DisposableEffect(Unit) {
+        onDispose {
+            notificationService.stopPreviewAdzan()
+        }
+    }
+
+    fun playPreview(fileName: String, type: String) {
+        val isFajr = (type == "fajr")
+        activePreview = type
+        notificationService.previewAdzan(isFajr = isFajr, durationSeconds = 10)
+    }
+
     fun stopPreview() {
-        player?.stop()
-        player?.release()
-        player = null
+        notificationService.stopPreviewAdzan()
         activePreview = null
     }
 
@@ -950,9 +915,43 @@ fun SettingsScreen(
 
             // 7. FILE MANAGEMENT (CUSTOM LOADERS)
             item {
+                val currentStatusText = when (previewState) {
+                    is PreviewState.Loading -> "Memuat..."
+                    is PreviewState.Playing -> "Sedang Diputar"
+                    is PreviewState.Ready -> "Siap"
+                }
+
                 Column(modifier = Modifier.fillMaxWidth()) {
                     SettingsSectionHeader(title = "MANAJEMEN BERKAS ADZAN", icon = Icons.Outlined.QueueMusic)
                     Spacer(Modifier.height(8.dp))
+
+                    if (copyProgressState is CopyProgress.Copying) {
+                        val progressVal = (copyProgressState as CopyProgress.Copying).progress
+                        Card(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                            colors = CardDefaults.cardColors(containerColor = GoldGlow.copy(alpha = 0.2f))
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    progress = { progressVal },
+                                    modifier = Modifier.size(24.dp),
+                                    color = GoldPrimary,
+                                    strokeWidth = 2.dp
+                                )
+                                Text(
+                                    text = "Menyiapkan berkas suara adzan bawaan offline... (${(progressVal * 100).toInt()}%)",
+                                    fontSize = 11.sp,
+                                    fontFamily = NunitoFont,
+                                    color = TextPrimary
+                                )
+                            }
+                        }
+                    }
+
                     IslamicGlassCard(modifier = Modifier.fillMaxWidth()) {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             // Row 1: Adzan Umum
@@ -970,10 +969,14 @@ fun SettingsScreen(
                                         color = TextPrimary
                                     )
                                     Text(
-                                        text = customAdzanName ?: "Nada Bawaan Aplikasi",
+                                        text = if (activePreview == "umum") {
+                                            "[$currentStatusText] " + (customAdzanName ?: "Nada Bawaan Aplikasi (Makkah)")
+                                        } else {
+                                            customAdzanName ?: "Nada Bawaan Aplikasi (Makkah)"
+                                        },
                                         fontSize = 9.sp,
                                         fontFamily = NunitoFont,
-                                        color = if (customAdzanName != null) GoldPrimary else TextSecondary,
+                                        color = if (activePreview == "umum") GoldPrimary else (if (customAdzanName != null) GoldPrimary else TextSecondary),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -1045,10 +1048,14 @@ fun SettingsScreen(
                                         color = TextPrimary
                                     )
                                     Text(
-                                        text = customAdzanFajrName ?: "Nada Bawaan Aplikasi",
+                                        text = if (activePreview == "fajr") {
+                                            "[$currentStatusText] " + (customAdzanFajrName ?: "Nada Bawaan Aplikasi (Madinah)")
+                                        } else {
+                                            customAdzanFajrName ?: "Nada Bawaan Aplikasi (Madinah)"
+                                        },
                                         fontSize = 9.sp,
                                         fontFamily = NunitoFont,
-                                        color = if (customAdzanFajrName != null) GoldPrimary else TextSecondary,
+                                        color = if (activePreview == "fajr") GoldPrimary else (if (customAdzanFajrName != null) GoldPrimary else TextSecondary),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )

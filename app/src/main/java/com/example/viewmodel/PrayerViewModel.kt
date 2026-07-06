@@ -170,6 +170,10 @@ class PrayerViewModel(private val context: Context) : ViewModel() {
      * Algoritma penentu gerbang waktu sholat berikutnya paling mendekati waktu saat ini.
      * Mengkalkulasi selisih jam, menit, dan detik lalu menampilkannya sebagai countdown di layar.
      */
+    /**
+     * Algoritma penentu gerbang waktu sholat berikutnya paling mendekati waktu saat ini.
+     * Mengkalkulasi selisih jam, menit, dan detik lalu menampilkannya sebagai countdown di layar.
+     */
     private fun calculateNextPrayerCountdown(times: PrayerTime) {
         val now = Calendar.getInstance()
         val currentMillis = now.timeInMillis
@@ -188,11 +192,11 @@ class PrayerViewModel(private val context: Context) : ViewModel() {
             val name = p.first
             val valStr = p.second
             
-            val pCal = parseTimeStringToCalendar(valStr, false)
+            val pCal = parseTimeStringToCalendar(valStr, false) ?: continue
             if (pCal.timeInMillis > currentMillis) {
                 // Waktu sholat ini adalah sholat berikutnya hari ini!
                 _nextPrayerName.value = name
-                _nextPrayerTimeValue.value = valStr
+                _nextPrayerTimeValue.value = valStr ?: ""
                 _nextPrayerLabelLabel.value = name
                 
                 val diff = pCal.timeInMillis - currentMillis
@@ -206,21 +210,64 @@ class PrayerViewModel(private val context: Context) : ViewModel() {
         // Maka sholat berikutnya adalah Subuh BESOK HARI.
         if (!foundNext) {
             _nextPrayerName.value = "Subuh"
-            _nextPrayerTimeValue.value = times.fajr
+            _nextPrayerTimeValue.value = times.fajr ?: ""
             _nextPrayerLabelLabel.value = "Subuh (Fajr) (Besok)"
             
             val tomorrowSubuh = parseTimeStringToCalendar(times.fajr, true)
-            val diff = tomorrowSubuh.timeInMillis - currentMillis
+            val diff = if (tomorrowSubuh != null) tomorrowSubuh.timeInMillis - currentMillis else 0L
             _countdownString.value = formatMillisToCountdown(diff)
         }
     }
 
-    private fun parseTimeStringToCalendar(timeStr: String, isTomorrow: Boolean): Calendar {
-        return try {
-            val parts = timeStr.split(":")
-            val h = parts[0].trim().toInt()
-            val m = parts[1].trim().toInt()
+    private val failedLogs = java.util.concurrent.ConcurrentHashMap<String, Long>()
 
+    /**
+     * Memvalidasi apakah format string waktu sholat valid (HH:mm) dan berada dalam batas logika yang benar (jam 0-23, menit 0-59).
+     * Mampu mendeteksi dan mengekstrak porsi waktu dari string yang memiliki timezone/embel-embel (seperti "12:00 WIB" atau "12:00 (WIB)").
+     */
+    fun isValidTimeString(timeStr: String?): Boolean {
+        if (timeStr.isNullOrBlank()) return false
+        val cleaned = timeStr.trim()
+        val match = Regex("^(\\d{1,2}):(\\d{2})").find(cleaned) ?: return false
+        val hour = match.groupValues[1].toIntOrNull() ?: return false
+        val minute = match.groupValues[2].toIntOrNull() ?: return false
+        return hour in 0..23 && minute in 0..59
+    }
+
+    /**
+     * Mengonversi string waktu sholat menjadi objek Calendar.
+     * Mengembalikan null jika parsing gagal atau string tidak valid.
+     */
+    fun parseTimeStringToCalendar(timeStr: String?, isTomorrow: Boolean): Calendar? {
+        if (timeStr.isNullOrBlank()) {
+            return null
+        }
+        val cleaned = timeStr.trim()
+        val match = Regex("^(\\d{1,2}):(\\d{2})").find(cleaned)
+        if (match == null) {
+            val nowMs = System.currentTimeMillis()
+            val lastLogged = failedLogs[timeStr] ?: 0L
+            if (nowMs - lastLogged > 60000L) { // Throttle logcat warning per input unik sejauh 60 detik
+                Log.w("PrayerViewModel", "Format waktu sholat tidak valid (pola salah): '$timeStr'")
+                failedLogs[timeStr] = nowMs
+            }
+            return null
+        }
+
+        val h = match.groupValues[1].toIntOrNull()
+        val m = match.groupValues[2].toIntOrNull()
+
+        if (h == null || m == null || h !in 0..23 || m !in 0..59) {
+            val nowMs = System.currentTimeMillis()
+            val lastLogged = failedLogs[timeStr] ?: 0L
+            if (nowMs - lastLogged > 60000L) {
+                Log.w("PrayerViewModel", "Nilai jam/menit sholat di luar batas logika: '$timeStr'")
+                failedLogs[timeStr] = nowMs
+            }
+            return null
+        }
+
+        return try {
             Calendar.getInstance().apply {
                 set(Calendar.HOUR_OF_DAY, h)
                 set(Calendar.MINUTE, m)
@@ -231,11 +278,8 @@ class PrayerViewModel(private val context: Context) : ViewModel() {
                 }
             }
         } catch (e: Exception) {
-            Calendar.getInstance().apply {
-                if (isTomorrow) {
-                    add(Calendar.DAY_OF_YEAR, 1)
-                }
-            }
+            Log.e("PrayerViewModel", "Gagal menginstansiasi objek Calendar untuk waktu '$timeStr'", e)
+            null
         }
     }
 

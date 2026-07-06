@@ -20,6 +20,10 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import id.ideahousetech.prayertime_qibla.model.PrayerTime
 import id.ideahousetech.prayertime_qibla.utils.SecurePrefs
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -68,7 +72,7 @@ class NotificationService(private val context: Context) {
 
     init {
         createNotificationChannel()
-        copyAssetAudioFilesIfNeeded()
+        triggerCopyAssetAudioFiles()
     }
 
     // ── Audio Focus ──────────────────────────────────────────────────────────
@@ -343,53 +347,286 @@ class NotificationService(private val context: Context) {
         }
     }
 
+    // ── StateFlows untuk observasi dari UI ──────────────────────────────────────
+    private val _copyProgress = MutableStateFlow<CopyProgress>(CopyProgress.Idle)
+    val copyProgress: StateFlow<CopyProgress> = _copyProgress.asStateFlow()
+
+    private val _previewState = MutableStateFlow<PreviewState>(PreviewState.Ready)
+    val previewState: StateFlow<PreviewState> = _previewState.asStateFlow()
+
+    private var previewPlayer: MediaPlayer? = null
+    private val previewHandler = Handler(Looper.getMainLooper())
+    private val isPreviewPlaying = java.util.concurrent.atomic.AtomicBoolean(false)
+
     // ── Asset Copy ───────────────────────────────────────────────────────────
 
     /**
-     * Menyalin file audio dari assets ke filesDir.
-     * Hanya salin jika file assets VALID (> 100KB).
-     * Jika assets tidak valid, biarkan filesDir kosong — playAdzanAudio
-     * akan langsung fallback ke ringtone sistem.
+     * Memicu proses salin file audio secara asinkron pada background thread (Dispatchers.IO).
+     * Mencegah potensi ANR pada Main thread.
      */
-    private fun copyAssetAudioFilesIfNeeded() {
+    fun triggerCopyAssetAudioFiles() {
+        CoroutineScope(Dispatchers.IO).launch {
+            copyAssetAudioFilesIfNeeded()
+        }
+    }
+
+    /**
+     * Menyalin file audio dari assets ke filesDir dengan pelaporan progress real-time.
+     * Hanya menyalin jika file assets valid (> 100KB) dan belum identik di lokal.
+     */
+    private suspend fun copyAssetAudioFilesIfNeeded() {
         val filesToCopy = listOf("adzan.mp3", "adzan_fajr.mp3")
-        for (fileName in filesToCopy) {
-            val destFile = File(context.filesDir, fileName)
+        _copyProgress.value = CopyProgress.Copying(0f)
 
-            // Cek apakah file assets valid sebelum disalin
-            try {
-                val afd = context.assets.openFd(fileName)
-                val assetSize = afd.length
-                afd.close()
+        try {
+            var totalBytesCopied = 0L
+            var totalExpectedBytes = 0L
 
-                // Jika file tujuan sudah ada dan berukuran sama persis dengan asset (artinya identik/sudah terupdate), silakan skip
+            // 1. Hitung total ukuran perkiraan bytes yang harus disalin
+            for (fileName in filesToCopy) {
+                try {
+                    context.assets.openFd(fileName).use { afd ->
+                        totalExpectedBytes += afd.length
+                    }
+                } catch (e: Exception) {
+                    Log.e("NotificationService", "Gagal membaca asset fd: ${e.message}")
+                }
+            }
+
+            if (totalExpectedBytes == 0L) {
+                _copyProgress.value = CopyProgress.Success
+                return
+            }
+
+            var currentCopied = 0L
+            for (fileName in filesToCopy) {
+                val destFile = File(context.filesDir, fileName)
+                var assetSize = 0L
+
+                try {
+                    context.assets.openFd(fileName).use { afd ->
+                        assetSize = afd.length
+                    }
+                } catch (e: Exception) {
+                    Log.e("NotificationService", "Gagal membaca fd untuk $fileName: ${e.message}")
+                }
+
+                // Cek jika file lokal sudah valid dan ukurannya identik, kita lewati copying namun tetap hitung dalam total progress
                 if (destFile.exists() && destFile.length() == assetSize && assetSize > 100_000) {
-                    Log.d("NotificationService", "$fileName sudah ada dan identik dengan assets di filesDir")
+                    currentCopied += assetSize
+                    val progress = (currentCopied.toFloat() / totalExpectedBytes).coerceIn(0f, 1f)
+                    _copyProgress.value = CopyProgress.Copying(progress)
+                    Log.d("NotificationService", "$fileName sudah terinstal dan identik")
                     continue
                 }
 
                 if (assetSize > 100_000) {
-                    // File assets valid — salin ke filesDir
-                    context.assets.open(fileName).use { input ->
-                        FileOutputStream(destFile).use { output ->
-                            input.copyTo(output)
+                    try {
+                        context.assets.open(fileName).use { input ->
+                            FileOutputStream(destFile).use { output ->
+                                val buffer = ByteArray(16 * 1024) // 16KB buffer
+                                var bytesRead: Int
+                                while (input.read(buffer).also { bytesRead = it } != -1) {
+                                    output.write(buffer, 0, bytesRead)
+                                    currentCopied += bytesRead
+                                    val progress = (currentCopied.toFloat() / totalExpectedBytes).coerceIn(0f, 1f)
+                                    _copyProgress.value = CopyProgress.Copying(progress)
+                                    yield() // Cooperative cancellation & context yield
+                                }
+                            }
                         }
+                        Log.d("NotificationService", "$fileName berhasil disalin (${destFile.length()} bytes)")
+                    } catch (e: Exception) {
+                        Log.e("NotificationService", "Gagal menyalin $fileName: ${e.message}")
+                        if (destFile.exists()) destFile.delete() // Hapus jika rusak/interupsi
+                        throw e
                     }
-                    Log.d("NotificationService", "Tersalin/Terupdate: $fileName (${destFile.length()} bytes)")
                 } else {
-                    // File assets tidak valid (terlalu kecil) — jangan salin
-                    Log.w("NotificationService",
-                        "$fileName di assets tidak valid (${assetSize} bytes), " +
-                        "akan menggunakan ringtone sistem sebagai fallback")
-                    if (destFile.exists()) destFile.delete() // Hapus file lama yang tidak valid
-                }
-            } catch (e: Exception) {
-                Log.e("NotificationService", "Tidak bisa akses/salin assets/$fileName: ${e.message}")
-                // Sebagai fallback, jika file sudah ada > 100KB, biarkan saja
-                if (destFile.exists() && destFile.length() > 100_000) {
-                    Log.d("NotificationService", "Fallback menggunakan file lokal yang sudah ada: $fileName")
+                    Log.w("NotificationService", "$fileName di assets terlalu kecil (${assetSize} bytes)")
+                    if (destFile.exists()) destFile.delete()
                 }
             }
+            _copyProgress.value = CopyProgress.Success
+        } catch (e: Exception) {
+            _copyProgress.value = CopyProgress.Error(e.message ?: "Gagal menyalin file audio")
+        }
+    }
+
+    // ── Audio File Validation ────────────────────────────────────────────────
+
+    /**
+     * Memvalidasi keabsahan file audio dari assets dan filesDir.
+     * Mengecek status ketersediaan, kelayakan ukuran, serta kemampuan decode MediaPlayer.
+     */
+    fun validateAudioFile(fileName: String): AudioFileStatus {
+        // 1. Cek keberadaan dan ukuran di assets
+        var assetExists = false
+        var assetSize = 0L
+        try {
+            context.assets.openFd(fileName).use { afd ->
+                assetExists = true
+                assetSize = afd.length
+            }
+        } catch (e: Exception) {
+            // Assets tidak ditemukan
+        }
+
+        if (!assetExists) {
+            return AudioFileStatus.Missing
+        }
+
+        if (assetSize <= 100_000) {
+            return AudioFileStatus.TooSmall
+        }
+
+        // 2. Cek keberadaan di filesDir lokal
+        val localFile = File(context.filesDir, fileName)
+        if (!localFile.exists()) {
+            return AudioFileStatus.Missing
+        }
+
+        if (localFile.length() < 100_000) {
+            return AudioFileStatus.TooSmall
+        }
+
+        // 3. Tes kemampuan decode MediaPlayer (Dry Run)
+        val player = MediaPlayer()
+        return try {
+            player.setDataSource(localFile.absolutePath)
+            player.setVolume(0f, 0f) // Diam/Silent
+            player.prepare()
+            AudioFileStatus.Valid
+        } catch (e: Exception) {
+            Log.e("NotificationService", "Gagal mendekode berkas audio $fileName: ${e.message}")
+            AudioFileStatus.Corrupted
+        } finally {
+            player.reset()
+            player.release()
+        }
+    }
+
+    // ── Preview/Test Adzan ───────────────────────────────────────────────────
+
+    /**
+     * Memutar sampel adzan selama durasi tertentu (default 10 detik).
+     * Jika saat ini sedang memutar, memanggil fungsi ini akan menghentikannya secara instan.
+     */
+    fun previewAdzan(isFajr: Boolean, durationSeconds: Int = 10) {
+        if (isPreviewPlaying.get()) {
+            stopPreviewAdzan()
+            return
+        }
+
+        try {
+            stopPreviewAdzan() // Pastikan preview sebelumnya mati bersih
+            _previewState.value = PreviewState.Loading
+
+            val audioFileName = if (isFajr) "adzan_fajr.mp3" else "adzan.mp3"
+            val player = MediaPlayer()
+            previewPlayer = player
+            isPreviewPlaying.set(true)
+
+            // Gunakan USAGE_MEDIA untuk pratinjau agar aman sesuai intensitas volume media sistem
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                player.setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build()
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                player.setAudioStreamType(AudioManager.STREAM_MUSIC)
+            }
+
+            var sourceSet = false
+            val localFile = File(context.filesDir, audioFileName)
+            if (localFile.exists() && localFile.length() > 100_000) {
+                try {
+                    player.setDataSource(localFile.absolutePath)
+                    sourceSet = true
+                    Log.d("NotificationService", "Pratinjau dari lokal: ${localFile.absolutePath}")
+                } catch (e: Exception) {
+                    player.reset()
+                }
+            }
+
+            if (!sourceSet) {
+                try {
+                    val afd = context.assets.openFd(audioFileName)
+                    if (afd.length > 100_000) {
+                        player.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                        sourceSet = true
+                        Log.d("NotificationService", "Pratinjau langsung dari assets: $audioFileName")
+                    }
+                    afd.close()
+                } catch (e: Exception) {
+                    player.reset()
+                }
+            }
+
+            if (!sourceSet) {
+                _previewState.value = PreviewState.Ready
+                isPreviewPlaying.set(false)
+                Log.e("NotificationService", "Gagal memposisikan sumber audio pratinjau")
+                return
+            }
+
+            player.prepareAsync()
+            player.setOnPreparedListener { mp ->
+                try {
+                    mp.start()
+                    _previewState.value = PreviewState.Playing
+                    Log.d("NotificationService", "Pratinjau adzan dimulai")
+
+                    previewHandler.postDelayed({
+                        Log.d("NotificationService", "Durasi pratinjau $durationSeconds detik selesai")
+                        stopPreviewAdzan()
+                    }, durationSeconds * 1000L)
+                } catch (e: Exception) {
+                    Log.e("NotificationService", "Gagal memulai pemutaran pratinjau: ${e.message}")
+                    stopPreviewAdzan()
+                }
+            }
+
+            player.setOnCompletionListener {
+                stopPreviewAdzan()
+            }
+
+            player.setOnErrorListener { _, what, extra ->
+                Log.e("NotificationService", "MediaPlayer Pratinjau Error: $what / $extra")
+                stopPreviewAdzan()
+                true
+            }
+
+        } catch (e: Exception) {
+            Log.e("NotificationService", "Kesalahan internal pratinjau: ${e.message}")
+            stopPreviewAdzan()
+        }
+    }
+
+    /** Menghentikan pratinjau adzan secara bersih */
+    fun stopPreviewAdzan() {
+        if (!isPreviewPlaying.compareAndSet(true, false)) {
+            _previewState.value = PreviewState.Ready
+            return
+        }
+
+        previewHandler.removeCallbacksAndMessages(null)
+        val player = previewPlayer
+        previewPlayer = null
+        try {
+            player?.apply {
+                if (isPlaying) {
+                    stop()
+                }
+                reset()
+                release()
+            }
+        } catch (_: Exception) {
+        } finally {
+            _previewState.value = PreviewState.Ready
+            Log.d("NotificationService", "Pratinjau adzan dihentikan bersih")
         }
     }
 
@@ -595,3 +832,29 @@ class AlarmReceiver : BroadcastReceiver() {
         nm.notify(1002, notification)
     }
 }
+
+sealed class AdzanSource {
+    object Default : AdzanSource()       // dari assets
+    data class Custom(val uri: Uri) : AdzanSource() // file user
+}
+
+sealed class AudioFileStatus {
+    object Valid : AudioFileStatus()
+    object Missing : AudioFileStatus()
+    object Corrupted : AudioFileStatus()
+    object TooSmall : AudioFileStatus()
+}
+
+sealed class CopyProgress {
+    object Idle : CopyProgress()
+    data class Copying(val progress: Float) : CopyProgress()
+    object Success : CopyProgress()
+    data class Error(val message: String) : CopyProgress()
+}
+
+sealed class PreviewState {
+    object Ready : PreviewState()
+    object Loading : PreviewState()
+    object Playing : PreviewState()
+}
+
