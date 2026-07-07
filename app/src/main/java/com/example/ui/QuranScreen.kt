@@ -79,7 +79,7 @@ fun QuranScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(DeepNight, MidnightLayer)))
+            .background(AppBackgroundGradient)
     ) {
         if (selectedSurah == null) {
             // VIEW LIST SURAH

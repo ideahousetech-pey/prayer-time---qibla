@@ -26,6 +26,7 @@ interface PrayerCacheDao {
 }
 
 @Database(entities = [PrayerTimeCache::class, TasbihSession::class, PrayerTracker::class], version = 3, exportSchema = false)
+@TypeConverters(PrayerStatusConverter::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun prayerCacheDao(): PrayerCacheDao
     abstract fun tasbihDao(): TasbihDao

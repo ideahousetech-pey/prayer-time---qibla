@@ -8,6 +8,8 @@ import androidx.lifecycle.viewModelScope
 import id.ideahousetech.prayertime_qibla.service.LocationService
 import id.ideahousetech.prayertime_qibla.utils.getDouble
 import id.ideahousetech.prayertime_qibla.utils.putDouble
+import id.ideahousetech.prayertime_qibla.utils.PrefsKeys
+import id.ideahousetech.prayertime_qibla.utils.AppConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -42,7 +44,7 @@ class LocationViewModel(context: Context) : ViewModel() {
 
     init {
         // Ambil status apakah terakhir kali diset mode manual
-        _isManualLocation.value = prefs.getBoolean("is_manual_location", false)
+        _isManualLocation.value = prefs.getBoolean(PrefsKeys.IS_MANUAL_LOCATION, false)
         // Memuat lokasi cadangan terakhir dari shared_preference agar UI langsung terisi tanpa menunggu GPS lambat
         loadCachedLocation()
     }
@@ -85,10 +87,10 @@ class LocationViewModel(context: Context) : ViewModel() {
         _userLocation.value = manualLoc
         
         prefs.edit().apply {
-            putBoolean("is_manual_location", true)
-            putDouble("cached_lat", lat)
-            putDouble("cached_lon", lon)
-            putString("cached_address", cityName)
+            putBoolean(PrefsKeys.IS_MANUAL_LOCATION, true)
+            putDouble(PrefsKeys.CACHED_LAT, lat)
+            putDouble(PrefsKeys.CACHED_LON, lon)
+            putString(PrefsKeys.CACHED_ADDRESS, cityName)
             apply()
         }
         // Pastikan seluruh widget sinkron dengan data koordinat kustom yang baru diset manual
@@ -100,7 +102,7 @@ class LocationViewModel(context: Context) : ViewModel() {
      */
     fun setAutoLocation() {
         _isManualLocation.value = false
-        prefs.edit().putBoolean("is_manual_location", false).apply()
+        prefs.edit().putBoolean(PrefsKeys.IS_MANUAL_LOCATION, false).apply()
         refreshLocation()
     }
 
@@ -109,9 +111,9 @@ class LocationViewModel(context: Context) : ViewModel() {
      */
     private fun saveLocationToCache(lat: Double, lon: Double, address: String) {
         prefs.edit().apply {
-            putDouble("cached_lat", lat)
-            putDouble("cached_lon", lon)
-            putString("cached_address", address)
+            putDouble(PrefsKeys.CACHED_LAT, lat)
+            putDouble(PrefsKeys.CACHED_LON, lon)
+            putString(PrefsKeys.CACHED_ADDRESS, address)
             apply()
         }
         // Pastikan seluruh widget diperbarui ketika koordinat terbaru berhasil ter-cache dari pembacaan GPS otomatis
@@ -123,9 +125,9 @@ class LocationViewModel(context: Context) : ViewModel() {
      * Default fallback ke Koordinat Jakarta Pusat jika cache kosong.
      */
     private fun loadCachedLocation() {
-        val lat = prefs.getDouble("cached_lat", -6.175115) // Monas Jakarta
-        val lon = prefs.getDouble("cached_lon", 106.827157)
-        val address = prefs.getString("cached_address", "Menteng, Jakarta Pusat") ?: "Menteng, Jakarta Pusat"
+        val lat = prefs.getDouble(PrefsKeys.CACHED_LAT, -6.175115) // Monas Jakarta
+        val lon = prefs.getDouble(PrefsKeys.CACHED_LON, 106.827157)
+        val address = prefs.getString(PrefsKeys.CACHED_ADDRESS, "Menteng, Jakarta Pusat") ?: "Menteng, Jakarta Pusat"
 
         val mockLoc = Location("cached").apply {
             latitude = lat

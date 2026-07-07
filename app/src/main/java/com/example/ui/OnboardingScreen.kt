@@ -46,11 +46,7 @@ fun OnboardingScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(DeepNight, MidnightLayer)
-                )
-            )
+            .background(AppBackgroundGradient)
     ) {
         // Dynamic repeating diamond outline background patterns
         Canvas(modifier = Modifier.fillMaxSize()) {

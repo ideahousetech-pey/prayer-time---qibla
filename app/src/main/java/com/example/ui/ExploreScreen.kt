@@ -84,7 +84,7 @@ fun ExploreScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(DeepNight, MidnightLayer)))
+            .background(AppBackgroundGradient)
     ) {
         LazyColumn(
             modifier = Modifier

@@ -145,9 +145,7 @@ fun QiblaScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(listOf(DeepNight, MidnightLayer))
-            )
+            .background(AppBackgroundGradient)
     ) {
         // Subtle Islamic background pattern
         Canvas(modifier = Modifier.fillMaxSize()) {

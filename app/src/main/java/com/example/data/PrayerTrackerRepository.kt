@@ -1,5 +1,7 @@
 package id.ideahousetech.prayertime_qibla.data
 
+import id.ideahousetech.prayertime_qibla.model.PrayerName
+import id.ideahousetech.prayertime_qibla.model.PrayerStatus
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
@@ -66,12 +68,12 @@ class PrayerTrackerRepository(private val dao: PrayerTrackerDao) {
      */
     private fun logAnalyticsUpdate(tracker: PrayerTracker) {
         val completedPrayers = listOf(
-            "Subuh" to tracker.subuhStatus,
-            "Dzuhur" to tracker.dhuhrStatus,
-            "Ashar" to tracker.asrStatus,
-            "Maghrib" to tracker.maghribStatus,
-            "Isya" to tracker.isyaStatus
-        ).filter { it.second != "None" }
+            PrayerName.SUBUH.indonesianName to tracker.subuhStatus,
+            PrayerName.DZUHUR.indonesianName to tracker.dhuhrStatus,
+            PrayerName.ASHAR.indonesianName to tracker.asrStatus,
+            PrayerName.MAGHRIB.indonesianName to tracker.maghribStatus,
+            PrayerName.ISYA.indonesianName to tracker.isyaStatus
+        ).filter { it.second != PrayerStatus.NONE }
         
         android.util.Log.d(
             "PrayerTrackerAnalytics",

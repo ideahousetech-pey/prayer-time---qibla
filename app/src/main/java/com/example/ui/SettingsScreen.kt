@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import id.ideahousetech.prayertime_qibla.ui.theme.*
 import id.ideahousetech.prayertime_qibla.utils.SecurePrefs
+import id.ideahousetech.prayertime_qibla.utils.PrefsKeys
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
 import id.ideahousetech.prayertime_qibla.viewmodel.PrayerViewModel
 import id.ideahousetech.prayertime_qibla.service.NotificationService
@@ -80,14 +81,14 @@ fun SettingsScreen(
         )
     }
 
-    var isAlarmEnabled by remember { mutableStateOf(prefs.getBoolean("enable_adzan_alarm", true)) }
-    var isDailyReminderEnabled by remember { mutableStateOf(prefs.getBoolean("enable_daily_reminder", true)) }
-    var isStreakStrict by remember { mutableStateOf(prefs.getBoolean("streak_strict_mode", false)) }
-    var prayerOffset by remember { mutableStateOf(prefs.getInt("prayer_time_offset", 0)) }
-    var appThemeMode by remember { mutableStateOf(prefs.getString("app_theme_mode", "dark") ?: "dark") }
+    var isAlarmEnabled by remember { mutableStateOf(prefs.getBoolean(PrefsKeys.ENABLE_ADZAN_ALARM, true)) }
+    var isDailyReminderEnabled by remember { mutableStateOf(prefs.getBoolean(PrefsKeys.ENABLE_DAILY_REMINDER, true)) }
+    var isStreakStrict by remember { mutableStateOf(prefs.getBoolean(PrefsKeys.STREAK_STRICT_MODE, false)) }
+    var prayerOffset by remember { mutableStateOf(prefs.getInt(PrefsKeys.PRAYER_TIME_OFFSET, 0)) }
+    var appThemeMode by remember { mutableStateOf(prefs.getString(PrefsKeys.APP_THEME_MODE, "dark") ?: "dark") }
 
-    var customAdzanName by remember { mutableStateOf(prefs.getString("custom_adzan_name", null)) }
-    var customAdzanFajrName by remember { mutableStateOf(prefs.getString("custom_adzan_fajr_name", null)) }
+    var customAdzanName by remember { mutableStateOf(prefs.getString(PrefsKeys.CUSTOM_ADZAN_NAME, null)) }
+    var customAdzanFajrName by remember { mutableStateOf(prefs.getString(PrefsKeys.CUSTOM_ADZAN_FAJR_NAME, null)) }
 
     var isDownloading by remember { mutableStateOf(false) }
     var downloadProgress by remember { mutableStateOf(0f) }
@@ -237,10 +238,10 @@ fun SettingsScreen(
                 if (success) {
                     val savedName = "${adzan.displayName} (Internet)"
                     if (isSubuh) {
-                        prefs.edit().putString("custom_adzan_fajr_name", savedName).apply()
+                        prefs.edit().putString(PrefsKeys.CUSTOM_ADZAN_FAJR_NAME, savedName).apply()
                         customAdzanFajrName = savedName
                     } else {
-                        prefs.edit().putString("custom_adzan_name", savedName).apply()
+                        prefs.edit().putString(PrefsKeys.CUSTOM_ADZAN_NAME, savedName).apply()
                         customAdzanName = savedName
                     }
                     Toast.makeText(context, "Selesai mengunduh: $savedName", Toast.LENGTH_SHORT).show()
@@ -299,10 +300,10 @@ fun SettingsScreen(
             }
 
             if (isFajr) {
-                prefs.edit().putString("custom_adzan_fajr_name", origName).apply()
+                prefs.edit().putString(PrefsKeys.CUSTOM_ADZAN_FAJR_NAME, origName).apply()
                 customAdzanFajrName = origName
             } else {
-                prefs.edit().putString("custom_adzan_name", origName).apply()
+                prefs.edit().putString(PrefsKeys.CUSTOM_ADZAN_NAME, origName).apply()
                 customAdzanName = origName
             }
 
@@ -319,10 +320,10 @@ fun SettingsScreen(
             targetFile.delete()
         }
         if (isFajr) {
-            prefs.edit().remove("custom_adzan_fajr_name").apply()
+            prefs.edit().remove(PrefsKeys.CUSTOM_ADZAN_FAJR_NAME).apply()
             customAdzanFajrName = null
         } else {
-            prefs.edit().remove("custom_adzan_name").apply()
+            prefs.edit().remove(PrefsKeys.CUSTOM_ADZAN_NAME).apply()
             customAdzanName = null
         }
         stopPreview()
@@ -340,7 +341,7 @@ fun SettingsScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(DeepNight, MidnightLayer)))
+            .background(AppBackgroundGradient)
     ) {
         LazyColumn(
             modifier = Modifier
@@ -456,7 +457,7 @@ fun SettingsScreen(
                                     val isSelected = appThemeMode == modeKey
                                     Button(
                                         onClick = {
-                                            prefs.edit().putString("app_theme_mode", modeKey).apply()
+                                            prefs.edit().putString(PrefsKeys.APP_THEME_MODE, modeKey).apply()
                                             id.ideahousetech.prayertime_qibla.ui.theme.AppThemeState.currentThemeMode.value = modeKey
                                             appThemeMode = modeKey
                                         },
@@ -520,7 +521,7 @@ fun SettingsScreen(
                                 Switch(
                                     checked = isAlarmEnabled,
                                     onCheckedChange = { checked ->
-                                        prefs.edit().putBoolean("enable_adzan_alarm", checked).apply()
+                                        prefs.edit().putBoolean(PrefsKeys.ENABLE_ADZAN_ALARM, checked).apply()
                                         isAlarmEnabled = checked
                                     },
                                     colors = SwitchDefaults.colors(
@@ -599,7 +600,7 @@ fun SettingsScreen(
                                 Switch(
                                     checked = isDailyReminderEnabled,
                                     onCheckedChange = { checked ->
-                                        prefs.edit().putBoolean("enable_daily_reminder", checked).apply()
+                                        prefs.edit().putBoolean(PrefsKeys.ENABLE_DAILY_REMINDER, checked).apply()
                                         isDailyReminderEnabled = checked
                                         onReminderToggle(checked)
                                     },
@@ -642,7 +643,7 @@ fun SettingsScreen(
                                 Switch(
                                     checked = isStreakStrict,
                                     onCheckedChange = { checked ->
-                                        prefs.edit().putBoolean("streak_strict_mode", checked).apply()
+                                        prefs.edit().putBoolean(PrefsKeys.STREAK_STRICT_MODE, checked).apply()
                                         isStreakStrict = checked
                                     },
                                     colors = SwitchDefaults.colors(
@@ -864,7 +865,7 @@ fun SettingsScreen(
                                     onClick = {
                                         if (prayerOffset > -15) {
                                             prayerOffset -= 1
-                                            prefs.edit().putInt("prayer_time_offset", prayerOffset).apply()
+                                            prefs.edit().putInt(PrefsKeys.PRAYER_TIME_OFFSET, prayerOffset).apply()
                                             triggerPrayerReload()
                                         }
                                     },
@@ -893,7 +894,7 @@ fun SettingsScreen(
                                     onClick = {
                                         if (prayerOffset < 15) {
                                             prayerOffset += 1
-                                            prefs.edit().putInt("prayer_time_offset", prayerOffset).apply()
+                                            prefs.edit().putInt(PrefsKeys.PRAYER_TIME_OFFSET, prayerOffset).apply()
                                             triggerPrayerReload()
                                         }
                                     },

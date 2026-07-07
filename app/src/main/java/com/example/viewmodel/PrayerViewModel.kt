@@ -58,8 +58,8 @@ class PrayerViewModel(context: Context) : ViewModel() {
     val nextPrayerTimeValue: StateFlow<String> = _nextPrayerTimeValue.asStateFlow()
 
     // State Label display di layars (misal: "Subuh (Fajr) (Besok)" atau "Dzuhur")
-    private val _nextPrayerLabelLabel = MutableStateFlow("Memuat...")
-    val nextPrayerLabelLabel: StateFlow<String> = _nextPrayerLabelLabel.asStateFlow()
+    private val _nextPrayerLabel = MutableStateFlow("Memuat...")
+    val nextPrayerLabel: StateFlow<String> = _nextPrayerLabel.asStateFlow()
 
     // State teks countdown realtime format HH:mm:ss
     private val _countdownString = MutableStateFlow("00:00:00")
@@ -198,7 +198,7 @@ class PrayerViewModel(context: Context) : ViewModel() {
                 // Waktu sholat ini adalah sholat berikutnya hari ini!
                 _nextPrayerName.value = name
                 _nextPrayerTimeValue.value = valStr ?: ""
-                _nextPrayerLabelLabel.value = name
+                _nextPrayerLabel.value = name
                 
                 val diff = pCal.timeInMillis - currentMillis
                 _countdownString.value = formatMillisToCountdown(diff)
@@ -212,7 +212,7 @@ class PrayerViewModel(context: Context) : ViewModel() {
         if (!foundNext) {
             _nextPrayerName.value = "Subuh"
             _nextPrayerTimeValue.value = times.fajr ?: ""
-            _nextPrayerLabelLabel.value = "Subuh (Fajr) (Besok)"
+            _nextPrayerLabel.value = "Subuh (Fajr) (Besok)"
             
             val tomorrowSubuh = parseTimeStringToCalendar(times.fajr, true)
             val diff = if (tomorrowSubuh != null) tomorrowSubuh.timeInMillis - currentMillis else 0L

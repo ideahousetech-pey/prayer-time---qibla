@@ -1,7 +1,6 @@
 package id.ideahousetech.prayertime_qibla
 
 import android.Manifest
-import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -37,9 +36,6 @@ import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -70,10 +66,8 @@ import id.ideahousetech.prayertime_qibla.ui.QiblaScreen
 import id.ideahousetech.prayertime_qibla.ui.DailyScheduleScreen
 import id.ideahousetech.prayertime_qibla.ui.QuranScreen
 import id.ideahousetech.prayertime_qibla.ui.TasbihScreen
-import id.ideahousetech.prayertime_qibla.ui.SettingsDialog
 import id.ideahousetech.prayertime_qibla.ui.theme.MyApplicationTheme
-import id.ideahousetech.prayertime_qibla.ui.theme.DeepNight
-import id.ideahousetech.prayertime_qibla.ui.theme.MidnightLayer
+import id.ideahousetech.prayertime_qibla.ui.theme.AppBackgroundGradient
 import id.ideahousetech.prayertime_qibla.ui.theme.GoldPrimary
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModelFactory
@@ -88,6 +82,8 @@ import id.ideahousetech.prayertime_qibla.ui.ExploreScreen
 import id.ideahousetech.prayertime_qibla.ui.ProfileScreen
 import id.ideahousetech.prayertime_qibla.ui.SettingsScreen
 import id.ideahousetech.prayertime_qibla.ui.components.FloatingBottomBar
+import id.ideahousetech.prayertime_qibla.utils.PrefsKeys
+import id.ideahousetech.prayertime_qibla.utils.AppConfig
 import androidx.compose.material.icons.filled.Cached
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Settings
@@ -105,10 +101,22 @@ class MainActivity : ComponentActivity() {
             val context = LocalContext.current
             val prefs = remember { id.ideahousetech.prayertime_qibla.utils.SecurePrefs.get(context) }
             
-            // Initialize global state on start
+            var showSplash by remember { mutableStateOf(true) }
+            var showOnboarding by remember {
+                mutableStateOf(!prefs.getBoolean(PrefsKeys.IS_ONBOARDING_COMPLETED, false))
+            }
+            
+            // Initialize global state on start and manage splash timeout sequentially to prevent theme flicker
             LaunchedEffect(Unit) {
+                // 1. Load theme from prefs (sync, cepat)
                 id.ideahousetech.prayertime_qibla.ui.theme.AppThemeState.currentThemeMode.value = 
-                    prefs.getString("app_theme_mode", "dark") ?: "dark"
+                    prefs.getString(PrefsKeys.APP_THEME_MODE, "dark") ?: "dark"
+                
+                // 2. Delay splash
+                kotlinx.coroutines.delay(AppConfig.SPLASH_DURATION_MS)
+                
+                // 3. Hide splash
+                showSplash = false
             }
             
             // Reactive theme tracking from our central singleton
@@ -120,23 +128,13 @@ class MainActivity : ComponentActivity() {
             val trackerViewModel: PrayerTrackerViewModel = viewModel(factory = PrayerTrackerViewModelFactory(context))
             val qiblaViewModel: QiblaViewModel = viewModel(factory = QiblaViewModelFactory(context))
 
-            var showSplash by remember { mutableStateOf(true) }
-            var showOnboarding by remember {
-                mutableStateOf(!prefs.getBoolean("is_onboarding_completed", false))
-            }
-
-            LaunchedEffect(Unit) {
-                kotlinx.coroutines.delay(2500)
-                showSplash = false
-            }
-
             MyApplicationTheme(themeMode = themeMode) {
                 if (showSplash) {
                     SplashScreen()
                 } else if (showOnboarding) {
                     id.ideahousetech.prayertime_qibla.ui.OnboardingScreen(
                         onCompleted = {
-                            prefs.edit().putBoolean("is_onboarding_completed", true).apply()
+                            prefs.edit().putBoolean(PrefsKeys.IS_ONBOARDING_COMPLETED, true).apply()
                             showOnboarding = false
                         }
                     )
@@ -208,7 +206,7 @@ fun MainLayout(
     // 0. Mulai AdzanForegroundService jika alarm diset aktif hulu-hilir
     LaunchedEffect(Unit) {
         val prefs = id.ideahousetech.prayertime_qibla.utils.SecurePrefs.get(context)
-        if (prefs.getBoolean("enable_adzan_alarm", true)) {
+        if (prefs.getBoolean(PrefsKeys.ENABLE_ADZAN_ALARM, true)) {
             val intent = android.content.Intent(context, id.ideahousetech.prayertime_qibla.service.AdzanForegroundService::class.java).apply {
                 action = id.ideahousetech.prayertime_qibla.service.AdzanForegroundService.ACTION_START
             }
@@ -269,14 +267,7 @@ fun MainLayout(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                androidx.compose.ui.graphics.Brush.verticalGradient(
-                    listOf(
-                        DeepNight,
-                        MidnightLayer
-                    )
-                )
-            )
+            .background(AppBackgroundGradient)
     ) {
         // Dynamic Repeating Diamond Islamic Pattern Overlay
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -399,14 +390,7 @@ fun SplashScreen() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                androidx.compose.ui.graphics.Brush.verticalGradient(
-                    listOf(
-                        DeepNight,
-                        MidnightLayer
-                    )
-                )
-            ),
+            .background(AppBackgroundGradient),
         contentAlignment = androidx.compose.ui.Alignment.Center
     ) {
         Column(

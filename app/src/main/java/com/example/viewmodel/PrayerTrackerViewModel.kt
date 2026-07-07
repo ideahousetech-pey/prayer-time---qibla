@@ -10,6 +10,10 @@ import id.ideahousetech.prayertime_qibla.model.AchievementBadge
 import id.ideahousetech.prayertime_qibla.model.BadgeCategory
 import id.ideahousetech.prayertime_qibla.model.WeeklySpiritualSummary
 import id.ideahousetech.prayertime_qibla.model.MonthlySpiritualSummary
+import id.ideahousetech.prayertime_qibla.model.PrayerStatus
+import id.ideahousetech.prayertime_qibla.model.PrayerName
+import id.ideahousetech.prayertime_qibla.utils.PrefsKeys
+import id.ideahousetech.prayertime_qibla.utils.AppConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -44,14 +48,14 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // State flow untuk memantau status strict/lenient secara reaktif
-    private val _isStrictMode = MutableStateFlow(prefs.getBoolean("streak_strict_mode", false))
+    private val _isStrictMode = MutableStateFlow(prefs.getBoolean(PrefsKeys.STREAK_STRICT_MODE, false))
     val isStrictMode: StateFlow<Boolean> = _isStrictMode.asStateFlow()
 
     /**
      * Memperbarui mode kalkulasi streak (strict vs lenient) secara reaktif.
      */
     fun updateStrictMode(enabled: Boolean) {
-        prefs.edit().putBoolean("streak_strict_mode", enabled).apply()
+        prefs.edit().putBoolean(PrefsKeys.STREAK_STRICT_MODE, enabled).apply()
         _isStrictMode.value = enabled
     }
 
@@ -70,7 +74,7 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
         .map { list ->
             list.sumOf { t ->
                 listOf(t.subuhStatus, t.dhuhrStatus, t.asrStatus, t.maghribStatus, t.isyaStatus)
-                    .count { it == "Jamaah" }
+                    .count { it == PrayerStatus.JAMAAH }
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
@@ -80,7 +84,7 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
         .map { list ->
             list.sumOf { t ->
                 listOf(t.subuhStatus, t.dhuhrStatus, t.asrStatus, t.maghribStatus, t.isyaStatus)
-                    .count { it != "None" && it != "Halangan" }
+                    .count { it != PrayerStatus.NONE && it != PrayerStatus.HALANGAN }
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
@@ -143,13 +147,12 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
     fun updatePrayerStatus(date: String, prayerName: String, newStatus: String) {
         viewModelScope.launch {
             val existing = repository.getTrackerForDateDirect(date) ?: PrayerTracker(date = date)
-            val updated = when (prayerName.uppercase()) {
-                "SUBUH" -> existing.copy(subuhStatus = newStatus)
-                "DZUHUR" -> existing.copy(dhuhrStatus = newStatus)
-                "ASHAR" -> existing.copy(asrStatus = newStatus)
-                "MAGHRIB" -> existing.copy(maghribStatus = newStatus)
-                "ISYA" -> existing.copy(isyaStatus = newStatus)
-                else -> existing
+            val pName = PrayerName.fromString(prayerName)
+            val pStatus = PrayerStatus.fromString(newStatus)
+            val updated = if (pName != null) {
+                pName.updateTrackerStatus(existing, pStatus)
+            } else {
+                existing
             }
             repository.saveOrUpdateTracker(updated)
         }
@@ -325,26 +328,26 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
     private fun computeDynamicBadges(trackers: List<PrayerTracker>): List<AchievementBadge> {
         // Parameter pendukung kalkulasi
         val subuhDoneCount = trackers.count { t ->
-            t.subuhStatus != "None" && t.subuhStatus != "Halangan"
+            t.subuhStatus != PrayerStatus.NONE && t.subuhStatus != PrayerStatus.HALANGAN
         }
         
         val totalJamaahCount = trackers.sumOf { t ->
             listOf(t.subuhStatus, t.dhuhrStatus, t.asrStatus, t.maghribStatus, t.isyaStatus)
-                .count { it == "Jamaah" }
+                .count { it == PrayerStatus.JAMAAH }
         }
         
         val bestStreak = calculateBestStreak(trackers)
         
         // Hari di mana Subuh & Isya sekaligus terlaksana secara Jamaah
         val subuhIsyaJamaahCount = trackers.count { t ->
-            t.subuhStatus == "Jamaah" && t.isyaStatus == "Jamaah"
+            t.subuhStatus == PrayerStatus.JAMAAH && t.isyaStatus == PrayerStatus.JAMAAH
         }
         
         val dzuhurAsharCount = trackers.sumOf { t ->
-            listOf(t.dhuhrStatus, t.asrStatus).count { it != "None" && it != "Halangan" }
+            listOf(t.dhuhrStatus, t.asrStatus).count { it != PrayerStatus.NONE && it != PrayerStatus.HALANGAN }
         }
         
-        val isyaJamaahCount = trackers.count { t -> t.isyaStatus == "Jamaah" }
+        val isyaJamaahCount = trackers.count { t -> t.isyaStatus == PrayerStatus.JAMAAH }
 
         // Bikin daftar Badge
         return listOf(
@@ -430,74 +433,21 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
         val daysAgo7 = getPastDateStrings(7)
         val trackerMap = trackers.associateBy { it.date }
         
-        var totalOpportunities = 35 // 7 hari * 5 waktu
-        var completedCount = 0
-        var jamaah = 0
-        var munfarid = 0
-        var masbuq = 0
-        var halangan = 0
-        
-        val subuhCompleted = mutableListOf<String>()
-        val asharCompleted = mutableListOf<String>()
-        
-        var subuhCount = 0
-        var dhuhrCount = 0
-        var asrCount = 0
-        var maghribCount = 0
-        var isyaCount = 0
+        val totalOpportunities = 35 // 7 hari * 5 waktu
+        val stats = PrayerStats()
 
         for (dateStr in daysAgo7) {
             val t = trackerMap[dateStr] ?: continue
-            // Subuh
-            if (t.subuhStatus != "None") {
-                if (t.subuhStatus == "Halangan") halangan++ else completedCount++
-                when(t.subuhStatus) {
-                    "Jamaah" -> { jamaah++; subuhCount++ }
-                    "Munfarid" -> { munfarid++; subuhCount++ }
-                    "Masbuq" -> { masbuq++; subuhCount++ }
-                }
-            }
-            // Dhuhr
-            if (t.dhuhrStatus != "None") {
-                if (t.dhuhrStatus == "Halangan") halangan++ else completedCount++
-                when(t.dhuhrStatus) {
-                    "Jamaah" -> { jamaah++; dhuhrCount++ }
-                    "Munfarid" -> { munfarid++; dhuhrCount++ }
-                    "Masbuq" -> { masbuq++; dhuhrCount++ }
-                }
-            }
-            // Asr
-            if (t.asrStatus != "None") {
-                if (t.asrStatus == "Halangan") halangan++ else completedCount++
-                when(t.asrStatus) {
-                    "Jamaah" -> { jamaah++; asrCount++ }
-                    "Munfarid" -> { munfarid++; asrCount++ }
-                    "Masbuq" -> { masbuq++; asrCount++ }
-                }
-            }
-            // Maghrib
-            if (t.maghribStatus != "None") {
-                if (t.maghribStatus == "Halangan") halangan++ else completedCount++
-                when(t.maghribStatus) {
-                    "Jamaah" -> { jamaah++; maghribCount++ }
-                    "Munfarid" -> { munfarid++; maghribCount++ }
-                    "Masbuq" -> { masbuq++; maghribCount++ }
-                }
-            }
-            // Isya
-            if (t.isyaStatus != "None") {
-                if (t.isyaStatus == "Halangan") halangan++ else completedCount++
-                when(t.isyaStatus) {
-                    "Jamaah" -> { jamaah++; isyaCount++ }
-                    "Munfarid" -> { munfarid++; isyaCount++ }
-                    "Masbuq" -> { masbuq++; isyaCount++ }
-                }
-            }
+            processPrayerStatus(t.subuhStatus, stats) { stats.subuhCount++ }
+            processPrayerStatus(t.dhuhrStatus, stats) { stats.dhuhrCount++ }
+            processPrayerStatus(t.asrStatus, stats) { stats.asrCount++ }
+            processPrayerStatus(t.maghribStatus, stats) { stats.maghribCount++ }
+            processPrayerStatus(t.isyaStatus, stats) { stats.isyaCount++ }
         }
 
         // Penyesuaian total peluang jika ada halangan (udzur syar'i tidak dinilai bolong)
-        val adjustedTotal = totalOpportunities - halangan
-        val completionPercentage = if (adjustedTotal > 0) completedCount.toFloat() / adjustedTotal else 0.0f
+        val adjustedTotal = totalOpportunities - stats.halangan
+        val completionPercentage = if (adjustedTotal > 0) stats.completedCount.toFloat() / adjustedTotal else 0.0f
         
         // Tentukan tausiyah nasihat khusus berbasis kelemahan salat
         val (advice, source) = when {
@@ -507,19 +457,19 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
                     "HR. At-Tirmidzi no. 414"
                 )
             }
-            subuhCount < 4 -> {
+            stats.subuhCount < 4 -> {
                 Pair(
                     "Tercatat kelonggaran dalam menegakkan shalat Subuh pekan ini. Ingatlah, salat Subuh adalah saksi penutup malam yang dihadiri langsung oleh para malaikat Fajar. Letakkan alarm menjauh dari pembaringan raga.",
                     "QS. Al-Isra: 78"
                 )
             }
-            asrCount < 4 -> {
+            stats.asrCount < 4 -> {
                 Pair(
                     "Pilar Ashar Anda melemah di tengah hantaman kesibukan dunia harian. Shalat ula (Ashar) memiliki tempat agung; barangsiapa melewatkannya dengan sengaja, terancam gugur amalan usahanya.",
                     "HR. Bukhari no. 553"
                 )
             }
-            jamaah < 6 -> {
+            stats.jamaah < 6 -> {
                 Pair(
                     "Ketukan langkah menuju salat Berjamaah masih minim pekan ini. Usahakan minimal mengejar Isya atau Subuh berjamaah untuk menghalau kemunafikan batin dan meraih 27 derajat ketaatan.",
                     "HR. Bukhari no. 644"
@@ -543,22 +493,51 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
             startDateLabel = startLabel,
             endDateLabel = endLabel,
             completionPercentage = completionPercentage,
-            totalJamaah = jamaah,
-            totalMunfarid = munfarid,
-            totalMasbuq = masbuq,
-            totalHalangan = halangan,
+            totalJamaah = stats.jamaah,
+            totalMunfarid = stats.munfarid,
+            totalMasbuq = stats.masbuq,
+            totalHalangan = stats.halangan,
             highestStreakThisWeek = Math.min(7, calculateActiveStreak(trackers)),
             prayerDistribution = mapOf(
-                "Subuh" to subuhCount,
-                "Dzuhur" to dhuhrCount,
-                "Ashar" to asrCount,
-                "Maghrib" to maghribCount,
-                "Isya" to isyaCount
+                "Subuh" to stats.subuhCount,
+                "Dzuhur" to stats.dhuhrCount,
+                "Ashar" to stats.asrCount,
+                "Maghrib" to stats.maghribCount,
+                "Isya" to stats.isyaCount
             ),
             adviceTherapy = advice,
             adviceSource = source
         )
     }
+
+    /**
+     * Memproses status sholat untuk akumulasi statistik mingguan secara DRY.
+     */
+    private fun processPrayerStatus(status: PrayerStatus, stats: PrayerStats, incrementPrayerCount: () -> Unit) {
+        if (status != PrayerStatus.NONE) {
+            if (status == PrayerStatus.HALANGAN) {
+                stats.halangan++
+            } else {
+                stats.completedCount++
+                when (status) {
+                    PrayerStatus.JAMAAH -> {
+                        stats.jamaah++
+                        incrementPrayerCount()
+                    }
+                    PrayerStatus.MUNFARID -> {
+                        stats.munfarid++
+                        incrementPrayerCount()
+                    }
+                    PrayerStatus.MASBUQ -> {
+                        stats.masbuq++
+                        incrementPrayerCount()
+                    }
+                    else -> {}
+                }
+            }
+        }
+    }
+
 
     /**
      * Menghitung Ringkasan Spiritual Bulanan (30 Hari terakhir) secara dinamis.
@@ -580,11 +559,11 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
             if (t != null) {
                 activeDays++
                 val sList = listOf(t.subuhStatus, t.dhuhrStatus, t.asrStatus, t.maghribStatus, t.isyaStatus)
-                completedCount += sList.count { it != "None" && it != "Halangan" }
-                halanganCount += sList.count { it == "Halangan" }
-                jamaahCount += sList.count { it == "Jamaah" }
-                munfaridCount += sList.count { it == "Munfarid" }
-                masbuqCount += sList.count { it == "Masbuq" }
+                completedCount += sList.count { it != PrayerStatus.NONE && it != PrayerStatus.HALANGAN }
+                halanganCount += sList.count { it == PrayerStatus.HALANGAN }
+                jamaahCount += sList.count { it == PrayerStatus.JAMAAH }
+                munfaridCount += sList.count { it == PrayerStatus.MUNFARID }
+                masbuqCount += sList.count { it == PrayerStatus.MASBUQ }
             }
         }
 
@@ -658,4 +637,21 @@ class PrayerTrackerViewModelFactory(private val context: Context) : androidx.lif
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
+
+/**
+ * Data class penampung akumulasi statistik pelacakan sholat.
+ */
+data class PrayerStats(
+    var completedCount: Int = 0,
+    var halangan: Int = 0,
+    var jamaah: Int = 0,
+    var munfarid: Int = 0,
+    var masbuq: Int = 0,
+    var subuhCount: Int = 0,
+    var dhuhrCount: Int = 0,
+    var asrCount: Int = 0,
+    var maghribCount: Int = 0,
+    var isyaCount: Int = 0
+)
+
 

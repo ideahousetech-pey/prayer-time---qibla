@@ -56,7 +56,7 @@ fun CalendarScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(DeepNight, MidnightLayer)))
+            .background(AppBackgroundGradient)
     ) {
         Column(
             modifier = Modifier

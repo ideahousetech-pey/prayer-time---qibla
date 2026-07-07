@@ -20,6 +20,8 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import id.ideahousetech.prayertime_qibla.model.PrayerTime
 import id.ideahousetech.prayertime_qibla.utils.SecurePrefs
+import id.ideahousetech.prayertime_qibla.utils.PrefsKeys
+import id.ideahousetech.prayertime_qibla.utils.pendingIntentFlags
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -196,7 +198,7 @@ class NotificationService(private val context: Context) {
             releasePlayer()
 
             val prefs = SecurePrefs.get(context)
-            if (!prefs.getBoolean("enable_adzan_alarm", true)) {
+            if (!prefs.getBoolean(PrefsKeys.ENABLE_ADZAN_ALARM, true)) {
                 Log.d("NotificationService", "Alarm adzan dinonaktifkan")
                 return
             }
@@ -697,9 +699,7 @@ class NotificationService(private val context: Context) {
     }
 
     private fun scheduleExactAlarm(requestCode: Int, triggerAtMs: Long, intent: Intent) {
-        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        else PendingIntent.FLAG_UPDATE_CURRENT
+        val flags = pendingIntentFlags()
 
         val pendingIntent = PendingIntent.getBroadcast(context, requestCode, intent, flags)
 
@@ -751,26 +751,35 @@ class NotificationService(private val context: Context) {
 class AlarmReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        when (intent.action) {
-            NotificationService.ACTION_PLAY_ADZAN -> {
-                val prayerName = intent.getStringExtra(NotificationService.EXTRA_PRAYER_NAME) ?: "Sholat"
-                val isFajr    = intent.getBooleanExtra(NotificationService.EXTRA_IS_FAJR, false)
-                Log.d("AlarmReceiver", "Alarm: $prayerName (fajr=$isFajr)")
+        val pendingResult = goAsync()
+        CoroutineScope(Dispatchers.Default).launch {
+            try {
+                when (intent.action) {
+                    NotificationService.ACTION_PLAY_ADZAN -> {
+                        val prayerName = intent.getStringExtra(NotificationService.EXTRA_PRAYER_NAME) ?: "Sholat"
+                        val isFajr    = intent.getBooleanExtra(NotificationService.EXTRA_IS_FAJR, false)
+                        Log.d("AlarmReceiver", "Alarm: $prayerName (fajr=$isFajr)")
 
-                // Tampilkan notifikasi heads-up
-                showHeadsUpNotification(context, prayerName)
+                        // Tampilkan notifikasi heads-up
+                        showHeadsUpNotification(context, prayerName)
 
-                // Putar adzan (prepareAsync — tidak blok main thread)
-                NotificationService.getInstance(context).playAdzanAudio(isFajr)
-            }
-            NotificationService.ACTION_PRE_REMINDER -> {
-                val prayerName = intent.getStringExtra(NotificationService.EXTRA_PRAYER_NAME) ?: "Sholat"
-                showPreReminderNotification(context, prayerName)
-            }
-            NotificationService.ACTION_STOP_ADZAN -> {
-                NotificationService.getInstance(context).stopAdzanAudio()
-                (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
-                    .cancel(1001)
+                        // Putar adzan (prepareAsync — tidak blok main thread)
+                        NotificationService.getInstance(context).playAdzanAudio(isFajr)
+                    }
+                    NotificationService.ACTION_PRE_REMINDER -> {
+                        val prayerName = intent.getStringExtra(NotificationService.EXTRA_PRAYER_NAME) ?: "Sholat"
+                        showPreReminderNotification(context, prayerName)
+                    }
+                    NotificationService.ACTION_STOP_ADZAN -> {
+                        NotificationService.getInstance(context).stopAdzanAudio()
+                        (context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+                            .cancel(1001)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("AlarmReceiver", "Error in async onReceive: ${e.message}", e)
+            } finally {
+                pendingResult.finish()
             }
         }
     }
@@ -782,16 +791,14 @@ class AlarmReceiver : BroadcastReceiver() {
             context, 0,
             context.packageManager.getLaunchIntentForPackage(context.packageName)
                 ?.apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK },
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+            pendingIntentFlags(update = false)
         )
         val stopPi = PendingIntent.getBroadcast(
             context, 99,
             Intent(context, AlarmReceiver::class.java).apply {
                 action = NotificationService.ACTION_STOP_ADZAN
             },
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            else PendingIntent.FLAG_UPDATE_CURRENT
+            pendingIntentFlags(update = true)
         )
 
         val notification = NotificationCompat.Builder(context, NotificationService.CHANNEL_ID)

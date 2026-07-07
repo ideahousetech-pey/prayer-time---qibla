@@ -40,6 +40,7 @@ import androidx.compose.ui.window.Dialog
 import id.ideahousetech.prayertime_qibla.model.IslamicHoliday
 import id.ideahousetech.prayertime_qibla.ui.theme.*
 import id.ideahousetech.prayertime_qibla.utils.SecurePrefs
+import id.ideahousetech.prayertime_qibla.utils.PrefsKeys
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -257,12 +258,12 @@ fun SettingsDialog(
         )
     }
 
-    var isAlarmEnabled by remember { mutableStateOf(prefs.getBoolean("enable_adzan_alarm", true)) }
-    var isDailyReminderEnabled by remember { mutableStateOf(prefs.getBoolean("enable_daily_reminder", true)) }
-    var prayerOffset by remember { mutableStateOf(prefs.getInt("prayer_time_offset", 0)) }
+    var isAlarmEnabled by remember { mutableStateOf(prefs.getBoolean(PrefsKeys.ENABLE_ADZAN_ALARM, true)) }
+    var isDailyReminderEnabled by remember { mutableStateOf(prefs.getBoolean(PrefsKeys.ENABLE_DAILY_REMINDER, true)) }
+    var prayerOffset by remember { mutableStateOf(prefs.getInt(PrefsKeys.PRAYER_TIME_OFFSET, 0)) }
 
-    var customAdzanName by remember { mutableStateOf(prefs.getString("custom_adzan_name", null)) }
-    var customAdzanFajrName by remember { mutableStateOf(prefs.getString("custom_adzan_fajr_name", null)) }
+    var customAdzanName by remember { mutableStateOf(prefs.getString(PrefsKeys.CUSTOM_ADZAN_NAME, null)) }
+    var customAdzanFajrName by remember { mutableStateOf(prefs.getString(PrefsKeys.CUSTOM_ADZAN_FAJR_NAME, null)) }
 
     var isDownloading by remember { mutableStateOf(false) }
     var downloadProgress by remember { mutableStateOf(0f) }
@@ -421,10 +422,10 @@ fun SettingsDialog(
                 withContext(Dispatchers.Main) {
                     val savedName = "${adzan.displayName} (Internet)"
                     if (isSubuh) {
-                        prefs.edit().putString("custom_adzan_fajr_name", savedName).apply()
+                        prefs.edit().putString(PrefsKeys.CUSTOM_ADZAN_FAJR_NAME, savedName).apply()
                         customAdzanFajrName = savedName
                     } else {
-                        prefs.edit().putString("custom_adzan_name", savedName).apply()
+                        prefs.edit().putString(PrefsKeys.CUSTOM_ADZAN_NAME, savedName).apply()
                         customAdzanName = savedName
                     }
                     isDownloading = false
@@ -538,10 +539,10 @@ fun SettingsDialog(
             }
 
             if (isFajr) {
-                prefs.edit().putString("custom_adzan_fajr_name", origName).apply()
+                prefs.edit().putString(PrefsKeys.CUSTOM_ADZAN_FAJR_NAME, origName).apply()
                 customAdzanFajrName = origName
             } else {
-                prefs.edit().putString("custom_adzan_name", origName).apply()
+                prefs.edit().putString(PrefsKeys.CUSTOM_ADZAN_NAME, origName).apply()
                 customAdzanName = origName
             }
 
@@ -558,10 +559,10 @@ fun SettingsDialog(
             targetFile.delete()
         }
         if (isFajr) {
-            prefs.edit().remove("custom_adzan_fajr_name").apply()
+            prefs.edit().remove(PrefsKeys.CUSTOM_ADZAN_FAJR_NAME).apply()
             customAdzanFajrName = null
         } else {
-            prefs.edit().remove("custom_adzan_name").apply()
+            prefs.edit().remove(PrefsKeys.CUSTOM_ADZAN_NAME).apply()
             customAdzanName = null
         }
         stopPreview()
@@ -623,7 +624,7 @@ fun SettingsDialog(
                 Spacer(modifier = Modifier.height(20.dp))
 
                 // Section Tema: Mode Tampilan
-                var appThemeMode by remember { mutableStateOf(prefs.getString("app_theme_mode", "dark") ?: "dark") }
+                var appThemeMode by remember { mutableStateOf(prefs.getString(PrefsKeys.APP_THEME_MODE, "dark") ?: "dark") }
 
                 Column(
                     modifier = Modifier
@@ -668,7 +669,7 @@ fun SettingsDialog(
                                         shape = RoundedCornerShape(6.dp)
                                     )
                                     .clickable {
-                                        prefs.edit().putString("app_theme_mode", modeKey).apply()
+                                        prefs.edit().putString(PrefsKeys.APP_THEME_MODE, modeKey).apply()
                                         id.ideahousetech.prayertime_qibla.ui.theme.AppThemeState.currentThemeMode.value = modeKey
                                         appThemeMode = modeKey
                                     },
@@ -712,7 +713,7 @@ fun SettingsDialog(
                     Switch(
                         checked = isAlarmEnabled,
                         onCheckedChange = { checked ->
-                            prefs.edit().putBoolean("enable_adzan_alarm", checked).apply()
+                            prefs.edit().putBoolean(PrefsKeys.ENABLE_ADZAN_ALARM, checked).apply()
                             isAlarmEnabled = checked
                         },
                         colors = SwitchDefaults.colors(
@@ -802,7 +803,7 @@ fun SettingsDialog(
                     Switch(
                         checked = isDailyReminderEnabled,
                         onCheckedChange = { checked ->
-                            prefs.edit().putBoolean("enable_daily_reminder", checked).apply()
+                            prefs.edit().putBoolean(PrefsKeys.ENABLE_DAILY_REMINDER, checked).apply()
                             isDailyReminderEnabled = checked
                             onReminderToggle(checked)
                         },
@@ -845,7 +846,7 @@ fun SettingsDialog(
                             onClick = {
                                 if (prayerOffset > -15) {
                                     prayerOffset -= 1
-                                    prefs.edit().putInt("prayer_time_offset", prayerOffset).apply()
+                                    prefs.edit().putInt(PrefsKeys.PRAYER_TIME_OFFSET, prayerOffset).apply()
                                 }
                             },
                             colors = ButtonDefaults.buttonColors(
@@ -872,7 +873,7 @@ fun SettingsDialog(
                             onClick = {
                                 if (prayerOffset < 15) {
                                     prayerOffset += 1
-                                    prefs.edit().putInt("prayer_time_offset", prayerOffset).apply()
+                                    prefs.edit().putInt(PrefsKeys.PRAYER_TIME_OFFSET, prayerOffset).apply()
                                 }
                             },
                             colors = ButtonDefaults.buttonColors(

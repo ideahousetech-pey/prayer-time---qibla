@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import id.ideahousetech.prayertime_qibla.model.PrayerTime
 import id.ideahousetech.prayertime_qibla.utils.SecurePrefs
+import id.ideahousetech.prayertime_qibla.utils.PrefsKeys
 import id.ideahousetech.prayertime_qibla.BuildConfig
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
@@ -65,7 +66,7 @@ class PrayerService(private val context: Context) {
         method: Int = 20 // Method 20 = Kementerian Agama RI (Kemenag, ideal untuk Indonesia), Method 3 = MWL
     ): List<PrayerTime> = withContext(Dispatchers.IO) {
         val sharedPrefs = SecurePrefs.get(context)
-        val offset = sharedPrefs.getInt("prayer_time_offset", 0)
+        val offset = sharedPrefs.getInt(PrefsKeys.PRAYER_TIME_OFFSET, 0)
 
         // 1. Cek cache database
         val database = id.ideahousetech.prayertime_qibla.data.AppDatabase.getInstance(context)
@@ -336,7 +337,7 @@ class PrayerService(private val context: Context) {
             val asrTimeAndHour = calculateAsrTime(latitude, declination, baseDhuhr, 1)
 
             val sharedPrefs = SecurePrefs.get(context)
-            val offsetVal = sharedPrefs.getInt("prayer_time_offset", 0)
+            val offsetVal = sharedPrefs.getInt(PrefsKeys.PRAYER_TIME_OFFSET, 0)
 
             days.add(
                 applyOffsetToPrayerTime(

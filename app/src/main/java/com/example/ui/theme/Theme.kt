@@ -6,6 +6,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Brush
 
 /**
  * ==========================================
@@ -98,3 +99,11 @@ fun MyApplicationTheme(
         content     = content
     )
 }
+
+/**
+ * Centralized background gradient for the application.
+ * Dynamic and re-composes automatically on theme changes.
+ */
+val AppBackgroundGradient: Brush
+    get() = Brush.verticalGradient(listOf(DeepNight, MidnightLayer))
+

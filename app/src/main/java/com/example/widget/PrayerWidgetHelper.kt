@@ -13,6 +13,7 @@ import id.ideahousetech.prayertime_qibla.model.PrayerTime
 import id.ideahousetech.prayertime_qibla.service.PrayerService
 import id.ideahousetech.prayertime_qibla.utils.HijriDateUtils
 import id.ideahousetech.prayertime_qibla.utils.getDouble
+import id.ideahousetech.prayertime_qibla.utils.pendingIntentFlags
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -131,11 +132,7 @@ object PrayerWidgetHelper {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
-        val flags = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        } else {
-            PendingIntent.FLAG_UPDATE_CURRENT
-        }
+        val flags = pendingIntentFlags()
         return PendingIntent.getActivity(context, 0, intent, flags)
     }
 

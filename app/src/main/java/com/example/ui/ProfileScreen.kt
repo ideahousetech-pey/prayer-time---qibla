@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import id.ideahousetech.prayertime_qibla.ui.theme.*
 import id.ideahousetech.prayertime_qibla.utils.SecurePrefs
+import id.ideahousetech.prayertime_qibla.utils.PrefsKeys
 
 /**
  * ProfileScreen mendirikan pusat pengaturan terpadu (Profile Tab 5).
@@ -47,13 +48,13 @@ fun ProfileScreen(
     val scope = rememberCoroutineScope()
 
     // Alarm Adzan preference binding
-    var enableAlarm by remember { mutableStateOf(prefs.getBoolean("enable_adzan_alarm", true)) }
-    var enableDailyReminder by remember { mutableStateOf(prefs.getBoolean("enable_daily_reminder", true)) }
+    var enableAlarm by remember { mutableStateOf(prefs.getBoolean(PrefsKeys.ENABLE_ADZAN_ALARM, true)) }
+    var enableDailyReminder by remember { mutableStateOf(prefs.getBoolean(PrefsKeys.ENABLE_DAILY_REMINDER, true)) }
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(DeepNight, MidnightLayer)))
+            .background(AppBackgroundGradient)
     ) {
         LazyColumn(
             modifier = Modifier
@@ -131,7 +132,7 @@ fun ProfileScreen(
                                 val isActive = currentTheme == mode
                                 Button(
                                     onClick = {
-                                        prefs.edit().putString("app_theme_mode", mode).apply()
+                                        prefs.edit().putString(PrefsKeys.APP_THEME_MODE, mode).apply()
                                         AppThemeState.currentThemeMode.value = mode
                                     },
                                     modifier = Modifier
@@ -194,7 +195,7 @@ fun ProfileScreen(
                                     checked = enableAlarm,
                                     onCheckedChange = { checked ->
                                         enableAlarm = checked
-                                        prefs.edit().putBoolean("enable_adzan_alarm", checked).apply()
+                                        prefs.edit().putBoolean(PrefsKeys.ENABLE_ADZAN_ALARM, checked).apply()
                                         Toast.makeText(context, if (checked) "Alarm Adzan diaktifkan" else "Alarm Adzan dimatikan", Toast.LENGTH_SHORT).show()
                                     },
                                     colors = SwitchDefaults.colors(
@@ -233,7 +234,7 @@ fun ProfileScreen(
                                     checked = enableDailyReminder,
                                     onCheckedChange = { checked ->
                                         enableDailyReminder = checked
-                                        prefs.edit().putBoolean("enable_daily_reminder", checked).apply()
+                                        prefs.edit().putBoolean(PrefsKeys.ENABLE_DAILY_REMINDER, checked).apply()
                                         Toast.makeText(context, if (checked) "Pengingat diaktifkan" else "Pengingat dimatikan", Toast.LENGTH_SHORT).show()
                                     },
                                     colors = SwitchDefaults.colors(

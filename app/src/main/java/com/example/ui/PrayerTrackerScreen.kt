@@ -35,6 +35,8 @@ import id.ideahousetech.prayertime_qibla.model.AchievementBadge
 import id.ideahousetech.prayertime_qibla.model.BadgeCategory
 import id.ideahousetech.prayertime_qibla.model.WeeklySpiritualSummary
 import id.ideahousetech.prayertime_qibla.model.MonthlySpiritualSummary
+import id.ideahousetech.prayertime_qibla.model.PrayerStatus
+import id.ideahousetech.prayertime_qibla.model.PrayerName
 import id.ideahousetech.prayertime_qibla.ui.IslamicGlassCard
 import id.ideahousetech.prayertime_qibla.ui.theme.*
 import id.ideahousetech.prayertime_qibla.viewmodel.PrayerTrackerViewModel
@@ -310,11 +312,11 @@ fun PrayerTrackerScreen(
                             }
 
                             val prayers = listOf(
-                                PrayerTrackItem("Subuh", selectedTracker?.subuhStatus ?: "None", Icons.Outlined.WbTwilight),
-                                PrayerTrackItem("Dzuhur", selectedTracker?.dhuhrStatus ?: "None", Icons.Outlined.WbSunny),
-                                PrayerTrackItem("Ashar", selectedTracker?.asrStatus ?: "None", Icons.Outlined.Cloud),
-                                PrayerTrackItem("Maghrib", selectedTracker?.maghribStatus ?: "None", Icons.Outlined.WbCloudy),
-                                PrayerTrackItem("Isya", selectedTracker?.isyaStatus ?: "None", Icons.Outlined.NightsStay)
+                                PrayerTrackItem(PrayerName.SUBUH.indonesianName, selectedTracker?.subuhStatus ?: PrayerStatus.NONE, Icons.Outlined.WbTwilight),
+                                PrayerTrackItem(PrayerName.DZUHUR.indonesianName, selectedTracker?.dhuhrStatus ?: PrayerStatus.NONE, Icons.Outlined.WbSunny),
+                                PrayerTrackItem(PrayerName.ASHAR.indonesianName, selectedTracker?.asrStatus ?: PrayerStatus.NONE, Icons.Outlined.Cloud),
+                                PrayerTrackItem(PrayerName.MAGHRIB.indonesianName, selectedTracker?.maghribStatus ?: PrayerStatus.NONE, Icons.Outlined.WbCloudy),
+                                PrayerTrackItem(PrayerName.ISYA.indonesianName, selectedTracker?.isyaStatus ?: PrayerStatus.NONE, Icons.Outlined.NightsStay)
                             )
 
                             Column(
@@ -326,7 +328,7 @@ fun PrayerTrackerScreen(
                                         item = item,
                                         onClick = {
                                             activePrayerToEdit = item.name
-                                            activeCurrentStatus = item.status
+                                            activeCurrentStatus = item.status.displayName
                                             showStatusPickerDialog = true
                                         }
                                     )
@@ -1210,7 +1212,7 @@ fun CalendarHeatmapContainer(
                         val isFull = tracker?.isFullyCompleted() ?: false
                         val countDone = tracker?.let {
                             listOf(it.subuhStatus, it.dhuhrStatus, it.asrStatus, it.maghribStatus, it.isyaStatus)
-                                .count { s -> s != "None" }
+                                .count { s -> s != PrayerStatus.NONE }
                         } ?: 0
 
                         val boxBg = when {
@@ -1377,11 +1379,11 @@ fun StatusPickerDialog(
 
                 // List of options (M3 tactile choices)
                 val options = listOf(
-                    Triple("Jamaah", "Sholat Berjamaah", "Pahala 27x lipat lebih utama"),
-                    Triple("Munfarid", "Sholat Sendiri (Munfarid)", "Menjalankan kewajiban sholat"),
-                    Triple("Masbuq", "Terlambat / Menyusul (Masbuq)", "Tetap laksanakan meski tertunda"),
-                    Triple("Halangan", "Halangan / Udzur Syar'i", "Udzur syar'i (wanita haid / sakit)"),
-                    Triple("None", "Belum Sholat / Hapus", "Reset data catatan sholat")
+                    Triple(PrayerStatus.JAMAAH.displayName, "Sholat Berjamaah", "Pahala 27x lipat lebih utama"),
+                    Triple(PrayerStatus.MUNFARID.displayName, "Sholat Sendiri (Munfarid)", "Menjalankan kewajiban sholat"),
+                    Triple(PrayerStatus.MASBUQ.displayName, "Terlambat / Menyusul (Masbuq)", "Tetap laksanakan meski tertunda"),
+                    Triple(PrayerStatus.HALANGAN.displayName, "Halangan / Udzur Syar'i", "Udzur syar'i (wanita haid / sakit)"),
+                    Triple(PrayerStatus.NONE.displayName, "Belum Sholat / Hapus", "Reset data catatan sholat")
                 )
 
                 Column(
@@ -1453,7 +1455,7 @@ fun StatusPickerDialog(
  */
 data class PrayerTrackItem(
     val name: String,
-    val status: String,
+    val status: PrayerStatus,
     val icon: ImageVector
 )
 
@@ -1466,18 +1468,18 @@ fun PrayerTrackingRow(
     onClick: () -> Unit
 ) {
     val bgGradient = when (item.status) {
-        "Jamaah" -> Brush.horizontalGradient(listOf(TealAccent.copy(alpha = 0.12f), Color.Transparent))
-        "Munfarid" -> Brush.horizontalGradient(listOf(GoldPrimary.copy(alpha = 0.08f), Color.Transparent))
-        "Masbuq" -> Brush.horizontalGradient(listOf(Color(0xFFFFB74D).copy(alpha = 0.08f), Color.Transparent))
-        "Halangan" -> Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0.05f), Color.Transparent))
+        PrayerStatus.JAMAAH -> Brush.horizontalGradient(listOf(TealAccent.copy(alpha = 0.12f), Color.Transparent))
+        PrayerStatus.MUNFARID -> Brush.horizontalGradient(listOf(GoldPrimary.copy(alpha = 0.08f), Color.Transparent))
+        PrayerStatus.MASBUQ -> Brush.horizontalGradient(listOf(Color(0xFFFFB74D).copy(alpha = 0.08f), Color.Transparent))
+        PrayerStatus.HALANGAN -> Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0.05f), Color.Transparent))
         else -> Brush.horizontalGradient(listOf(MidnightLayer.copy(alpha = 0.2f), Color.Transparent))
     }
 
     val borderStrokeColor = when (item.status) {
-        "Jamaah" -> TealAccent.copy(alpha = 0.4f)
-        "Munfarid" -> GoldPrimary.copy(alpha = 0.4f)
-        "Masbuq" -> Color(0xFFFFB74D).copy(alpha = 0.4f)
-        "Halangan" -> Color.White.copy(alpha = 0.2f)
+        PrayerStatus.JAMAAH -> TealAccent.copy(alpha = 0.4f)
+        PrayerStatus.MUNFARID -> GoldPrimary.copy(alpha = 0.4f)
+        PrayerStatus.MASBUQ -> Color(0xFFFFB74D).copy(alpha = 0.4f)
+        PrayerStatus.HALANGAN -> Color.White.copy(alpha = 0.2f)
         else -> GoldPrimary.copy(alpha = 0.1f)
     }
 
@@ -1509,10 +1511,10 @@ fun PrayerTrackingRow(
                         imageVector = item.icon,
                         contentDescription = item.name,
                         tint = when (item.status) {
-                            "Jamaah" -> TealAccent
-                            "Munfarid" -> GoldPrimary
-                            "Masbuq" -> Color(0xFFFFB74D)
-                            "Halangan" -> Color.White.copy(alpha = 0.6f)
+                            PrayerStatus.JAMAAH -> TealAccent
+                            PrayerStatus.MUNFARID -> GoldPrimary
+                            PrayerStatus.MASBUQ -> Color(0xFFFFB74D)
+                            PrayerStatus.HALANGAN -> Color.White.copy(alpha = 0.6f)
                             else -> TextSecondary
                         },
                         modifier = Modifier.size(18.dp)
@@ -1530,17 +1532,17 @@ fun PrayerTrackingRow(
                     )
                     
                     val statusText = when (item.status) {
-                        "Jamaah" -> "Berjamaah"
-                        "Munfarid" -> "Sendiri (Munfarid)"
-                        "Masbuq" -> "Terlambat / Masbuq"
-                        "Halangan" -> "Halangan / Udzur"
+                        PrayerStatus.JAMAAH -> "Berjamaah"
+                        PrayerStatus.MUNFARID -> "Sendiri (Munfarid)"
+                        PrayerStatus.MASBUQ -> "Terlambat / Masbuq"
+                        PrayerStatus.HALANGAN -> "Halangan / Udzur"
                         else -> "Belum Dicatat"
                     }
                     
                     Text(
                         text = statusText,
                         fontSize = 11.sp,
-                        color = if (item.status == "None") TextSecondary else Color.White.copy(alpha = 0.7f),
+                        color = if (item.status == PrayerStatus.NONE) TextSecondary else Color.White.copy(alpha = 0.7f),
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -1552,10 +1554,10 @@ fun PrayerTrackingRow(
                     .clip(RoundedCornerShape(100.dp))
                     .background(
                         when (item.status) {
-                            "Jamaah" -> TealAccent.copy(alpha = 0.2f)
-                            "Munfarid" -> GoldPrimary.copy(alpha = 0.2f)
-                            "Masbuq" -> Color(0xFFFFB74D).copy(alpha = 0.2f)
-                            "Halangan" -> Color.White.copy(alpha = 0.1f)
+                            PrayerStatus.JAMAAH -> TealAccent.copy(alpha = 0.2f)
+                            PrayerStatus.MUNFARID -> GoldPrimary.copy(alpha = 0.2f)
+                            PrayerStatus.MASBUQ -> Color(0xFFFFB74D).copy(alpha = 0.2f)
+                            PrayerStatus.HALANGAN -> Color.White.copy(alpha = 0.1f)
                             else -> Color.White.copy(alpha = 0.05f)
                         }
                     )
@@ -1566,18 +1568,18 @@ fun PrayerTrackingRow(
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     val statusIcon = when (item.status) {
-                        "Jamaah" -> Icons.Default.Mosque
-                        "Munfarid" -> Icons.Default.Person
-                        "Masbuq" -> Icons.Default.AccessTime
-                        "Halangan" -> Icons.Default.Healing
+                        PrayerStatus.JAMAAH -> Icons.Default.Mosque
+                        PrayerStatus.MUNFARID -> Icons.Default.Person
+                        PrayerStatus.MASBUQ -> Icons.Default.AccessTime
+                        PrayerStatus.HALANGAN -> Icons.Default.Healing
                         else -> Icons.Default.RadioButtonUnchecked
                     }
                     
                     val statusTint = when (item.status) {
-                        "Jamaah" -> TealAccent
-                        "Munfarid" -> GoldPrimary
-                        "Masbuq" -> Color(0xFFFFB74D)
-                        "Halangan" -> Color.White.copy(alpha = 0.7f)
+                        PrayerStatus.JAMAAH -> TealAccent
+                        PrayerStatus.MUNFARID -> GoldPrimary
+                        PrayerStatus.MASBUQ -> Color(0xFFFFB74D)
+                        PrayerStatus.HALANGAN -> Color.White.copy(alpha = 0.7f)
                         else -> TextSecondary
                     }
 
@@ -1590,7 +1592,7 @@ fun PrayerTrackingRow(
 
                     Text(
                         text = when (item.status) {
-                            "None" -> "Klik Catat"
+                            PrayerStatus.NONE -> "Klik Catat"
                             else -> "Ubah"
                         },
                         fontSize = 10.sp,

@@ -20,6 +20,7 @@ import id.ideahousetech.prayertime_qibla.AppScreen
 import id.ideahousetech.prayertime_qibla.ui.theme.*
 import id.ideahousetech.prayertime_qibla.ui.components.DailyInsightSection
 import id.ideahousetech.prayertime_qibla.utils.SecurePrefs
+import id.ideahousetech.prayertime_qibla.utils.PrefsKeys
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
 import id.ideahousetech.prayertime_qibla.viewmodel.PrayerViewModel
 
@@ -49,10 +50,10 @@ fun HomeScreen(
 
     val context = LocalContext.current
     val adzanPrefs = remember { SecurePrefs.get(context) }
-    var enableDailyReminder by remember { mutableStateOf(adzanPrefs.getBoolean("enable_daily_reminder", true)) }
+    var enableDailyReminder by remember { mutableStateOf(adzanPrefs.getBoolean(PrefsKeys.ENABLE_DAILY_REMINDER, true)) }
 
     LaunchedEffect(Unit) {
-        enableDailyReminder = adzanPrefs.getBoolean("enable_daily_reminder", true)
+        enableDailyReminder = adzanPrefs.getBoolean(PrefsKeys.ENABLE_DAILY_REMINDER, true)
     }
 
     var visible by remember { mutableStateOf(false) }
@@ -112,9 +113,9 @@ fun HomeScreen(
         }
 
         // Dialog PopUp Hari Kebesaran Islam
-        if (currentHolidayPopUp != null) {
+        currentHolidayPopUp?.let { holiday ->
             HolidayDialog(
-                holiday = currentHolidayPopUp!!,
+                holiday = holiday,
                 onDismiss = { prayerViewModel.dismissHolidayPopUp() }
             )
         }

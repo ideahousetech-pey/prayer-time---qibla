@@ -1,6 +1,7 @@
 package id.ideahousetech.prayertime_qibla.data
 
 import androidx.room.*
+import id.ideahousetech.prayertime_qibla.model.PrayerStatus
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -11,21 +12,21 @@ import kotlinx.coroutines.flow.Flow
 data class PrayerTracker(
     @PrimaryKey
     val date: String, // Format: "yyyy-MM-dd"
-    val subuhStatus: String = "None",    // "None", "Munfarid", "Jamaah", "Masbuq", "Halangan"
-    val dhuhrStatus: String = "None",     // "None", "Munfarid", "Jamaah", "Masbuq", "Halangan"
-    val asrStatus: String = "None",       // "None", "Munfarid", "Jamaah", "Masbuq", "Halangan"
-    val maghribStatus: String = "None",   // "None", "Munfarid", "Jamaah", "Masbuq", "Halangan"
-    val isyaStatus: String = "None"       // "None", "Munfarid", "Jamaah", "Masbuq", "Halangan"
+    val subuhStatus: PrayerStatus = PrayerStatus.NONE,
+    val dhuhrStatus: PrayerStatus = PrayerStatus.NONE,
+    val asrStatus: PrayerStatus = PrayerStatus.NONE,
+    val maghribStatus: PrayerStatus = PrayerStatus.NONE,
+    val isyaStatus: PrayerStatus = PrayerStatus.NONE
 ) {
     /**
      * Menghitung persentase sholat yang terlaksana untuk hari ini (di luar status Halangan).
      */
     fun calculateCompletionPercentage(): Float {
         val activePrayers = listOf(subuhStatus, dhuhrStatus, asrStatus, maghribStatus, isyaStatus)
-        val validPrayers = activePrayers.filter { it != "Halangan" }
+        val validPrayers = activePrayers.filter { it != PrayerStatus.HALANGAN }
         if (validPrayers.isEmpty()) return 100f // Jiwa suci dari kewajiban sholat terhitung full compliance
         
-        val completed = validPrayers.count { it != "None" }
+        val completed = validPrayers.count { it != PrayerStatus.NONE }
         return (completed.toFloat() / validPrayers.size.toFloat()) * 100f
     }
 
@@ -34,7 +35,7 @@ data class PrayerTracker(
      */
     fun isFullyCompleted(): Boolean {
         val list = listOf(subuhStatus, dhuhrStatus, asrStatus, maghribStatus, isyaStatus)
-        return list.none { it == "None" }
+        return list.none { it == PrayerStatus.NONE }
     }
 }
 

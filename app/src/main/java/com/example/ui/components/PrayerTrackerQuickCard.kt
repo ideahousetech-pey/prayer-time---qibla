@@ -29,6 +29,8 @@ import id.ideahousetech.prayertime_qibla.ui.StatusPickerDialog
 import id.ideahousetech.prayertime_qibla.ui.IslamicGlassCard
 import id.ideahousetech.prayertime_qibla.ui.theme.*
 import id.ideahousetech.prayertime_qibla.viewmodel.PrayerTrackerViewModel
+import id.ideahousetech.prayertime_qibla.model.PrayerStatus
+import id.ideahousetech.prayertime_qibla.model.PrayerName
 import kotlinx.coroutines.flow.map
 
 /**
@@ -160,11 +162,11 @@ fun PrayerTrackerQuickCard(
 
             // Interactive horizontal capsules for the 5 prayers today
             val quickPrayers = listOf(
-                "Subuh" to (todayTracker?.subuhStatus ?: "None"),
-                "Dzuhur" to (todayTracker?.dhuhrStatus ?: "None"),
-                "Ashar" to (todayTracker?.asrStatus ?: "None"),
-                "Maghrib" to (todayTracker?.maghribStatus ?: "None"),
-                "Isya" to (todayTracker?.isyaStatus ?: "None")
+                PrayerName.SUBUH.indonesianName to (todayTracker?.subuhStatus ?: PrayerStatus.NONE),
+                PrayerName.DZUHUR.indonesianName to (todayTracker?.dhuhrStatus ?: PrayerStatus.NONE),
+                PrayerName.ASHAR.indonesianName to (todayTracker?.asrStatus ?: PrayerStatus.NONE),
+                PrayerName.MAGHRIB.indonesianName to (todayTracker?.maghribStatus ?: PrayerStatus.NONE),
+                PrayerName.ISYA.indonesianName to (todayTracker?.isyaStatus ?: PrayerStatus.NONE)
             )
 
             Row(
@@ -172,26 +174,26 @@ fun PrayerTrackerQuickCard(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 quickPrayers.forEach { (name, status) ->
-                    val isDone = status != "None"
+                    val isDone = status != PrayerStatus.NONE
                     val itemBgColor = when (status) {
-                        "Jamaah" -> TealAccent.copy(alpha = 0.15f)
-                        "Munfarid" -> GoldPrimary.copy(alpha = 0.12f)
-                        "Masbuq" -> Color(0xFFFFB74D).copy(alpha = 0.12f)
-                        "Halangan" -> Color.White.copy(alpha = 0.08f)
+                        PrayerStatus.JAMAAH -> TealAccent.copy(alpha = 0.15f)
+                        PrayerStatus.MUNFARID -> GoldPrimary.copy(alpha = 0.12f)
+                        PrayerStatus.MASBUQ -> Color(0xFFFFB74D).copy(alpha = 0.12f)
+                        PrayerStatus.HALANGAN -> Color.White.copy(alpha = 0.08f)
                         else -> MidnightLayer.copy(alpha = 0.5f)
                     }
                     val itemBorderColor = when (status) {
-                        "Jamaah" -> TealAccent.copy(alpha = 0.5f)
-                        "Munfarid" -> GoldPrimary.copy(alpha = 0.5f)
-                        "Masbuq" -> Color(0xFFFFB74D).copy(alpha = 0.5f)
-                        "Halangan" -> Color.White.copy(alpha = 0.2f)
+                        PrayerStatus.JAMAAH -> TealAccent.copy(alpha = 0.5f)
+                        PrayerStatus.MUNFARID -> GoldPrimary.copy(alpha = 0.5f)
+                        PrayerStatus.MASBUQ -> Color(0xFFFFB74D).copy(alpha = 0.5f)
+                        PrayerStatus.HALANGAN -> Color.White.copy(alpha = 0.2f)
                         else -> GoldPrimary.copy(alpha = 0.12f)
                     }
                     val textTint = when (status) {
-                        "Jamaah" -> TealAccent
-                        "Munfarid" -> GoldPrimary
-                        "Masbuq" -> Color(0xFFFFB74D)
-                        "Halangan" -> Color.White.copy(alpha = 0.6f)
+                        PrayerStatus.JAMAAH -> TealAccent
+                        PrayerStatus.MUNFARID -> GoldPrimary
+                        PrayerStatus.MASBUQ -> Color(0xFFFFB74D)
+                        PrayerStatus.HALANGAN -> Color.White.copy(alpha = 0.6f)
                         else -> TextSecondary
                     }
 
@@ -203,7 +205,7 @@ fun PrayerTrackerQuickCard(
                             .border(1.dp, itemBorderColor, RoundedCornerShape(CornerMedium))
                             .clickable {
                                 selectedPrayerName = name
-                                currentStatus = status
+                                currentStatus = status.displayName
                                 showDialog = true
                             }
                             .padding(vertical = 10.dp),

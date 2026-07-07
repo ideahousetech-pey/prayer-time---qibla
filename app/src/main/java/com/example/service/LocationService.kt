@@ -12,8 +12,12 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.resume
 
 /**
@@ -23,57 +27,98 @@ import kotlin.coroutines.resume
  */
 class LocationService(private val context: Context) {
 
-    private val fusedLocationClient = LocationServices.getFusedLocationProviderClient(context)
+    private val appContext = context.applicationContext
+    private val fusedLocationClient = LocationServices.getFusedLocationProviderClient(appContext)
 
     /**
      * Mengambil lokasi GPS aktif terakhir atau meminta pembaharuan lokasi secara realtime.
      * Menggunakan suspendCancellableCoroutine agar stabil dan aman dari thread leak.
      */
     @SuppressLint("MissingPermission")
-    suspend fun getCurrentLocation(): Location? = suspendCancellableCoroutine { continuation ->
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+    suspend fun getCurrentLocation(): Location? {
+        if (ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             Log.w("LocationService", "Izin lokasi belum diberikan, membatalkan request GPS.")
-            if (continuation.isActive) continuation.resume(null)
-            return@suspendCancellableCoroutine
+            return null
         }
 
-        val cancellationTokenSource = CancellationTokenSource()
-        continuation.invokeOnCancellation {
-            try {
-                cancellationTokenSource.cancel()
-            } catch (e: Exception) {
-                Log.e("LocationService", "Gagal membatalkan CancellationTokenSource", e)
-            }
-        }
+        return try {
+            // BUG 3 Fix: FusedLocationProviderClient bisa hang jika GPS mati, tambahkan timeout maksimal 10 detik
+            withTimeoutOrNull(10000L) {
+                suspendCancellableCoroutine<Location?> { continuation ->
+                    // BUG 2 Fix: Gunakan AtomicBoolean untuk menghindari race condition double resume
+                    val isResumed = AtomicBoolean(false)
+                    fun safeResume(loc: Location?) {
+                        if (continuation.isActive && isResumed.compareAndSet(false, true)) {
+                            continuation.resume(loc)
+                        }
+                    }
 
-        try {
-            fusedLocationClient.getCurrentLocation(
-                Priority.PRIORITY_BALANCED_POWER_ACCURACY,
-                cancellationTokenSource.token
-            ).addOnCompleteListener { task ->
-                if (task.isSuccessful && task.result != null) {
-                    if (continuation.isActive) continuation.resume(task.result)
-                } else {
+                    val cancellationTokenSource = CancellationTokenSource()
+                    continuation.invokeOnCancellation {
+                        try {
+                            cancellationTokenSource.cancel()
+                        } catch (e: Exception) {
+                            Log.e("LocationService", "Gagal membatalkan CancellationTokenSource", e)
+                        }
+                    }
+
                     try {
-                        fusedLocationClient.lastLocation.addOnCompleteListener { lastTask ->
-                            if (continuation.isActive) {
-                                if (lastTask.isSuccessful && lastTask.result != null) {
-                                    continuation.resume(lastTask.result)
-                                } else {
-                                    continuation.resume(null)
+                        fusedLocationClient.getCurrentLocation(
+                            Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+                            cancellationTokenSource.token
+                        ).addOnCompleteListener { task ->
+                            if (task.isSuccessful && task.result != null) {
+                                safeResume(task.result)
+                            } else {
+                                try {
+                                    fusedLocationClient.lastLocation.addOnCompleteListener { lastTask ->
+                                        if (lastTask.isSuccessful && lastTask.result != null) {
+                                            safeResume(lastTask.result)
+                                        } else {
+                                            safeResume(null)
+                                        }
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("LocationService", "Gagal mengambil lastLocation: ${e.message}")
+                                    safeResume(null)
                                 }
                             }
                         }
                     } catch (e: Exception) {
-                        Log.e("LocationService", "Gagal mengambil lastLocation: ${e.message}")
-                        if (continuation.isActive) continuation.resume(null)
+                        Log.e("LocationService", "Gagal mengambil lokasi GPS langsung: ${e.message}")
+                        safeResume(null)
                     }
+                }
+            } ?: run {
+                Log.w("LocationService", "getCurrentLocation timed out after 10s, falling back to lastLocation")
+                getLastLocationFallback()
+            }
+        } catch (e: Exception) {
+            Log.e("LocationService", "Gagal mengambil lokasi: ${e.message}")
+            null
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private suspend fun getLastLocationFallback(): Location? = suspendCancellableCoroutine { continuation ->
+        val isResumed = AtomicBoolean(false)
+        fun safeResume(loc: Location?) {
+            if (continuation.isActive && isResumed.compareAndSet(false, true)) {
+                continuation.resume(loc)
+            }
+        }
+        try {
+            fusedLocationClient.lastLocation.addOnCompleteListener { lastTask ->
+                if (lastTask.isSuccessful && lastTask.result != null) {
+                    safeResume(lastTask.result)
+                } else {
+                    safeResume(null)
                 }
             }
         } catch (e: Exception) {
-            Log.e("LocationService", "Gagal mengambil lokasi GPS langsung: ${e.message}")
-            if (continuation.isActive) continuation.resume(null)
+            Log.e("LocationService", "Gagal mengambil lastLocation fallback: ${e.message}")
+            safeResume(null)
         }
     }
 
@@ -84,36 +129,49 @@ class LocationService(private val context: Context) {
     @Suppress("DEPRECATION")
     suspend fun getAddressFromLocation(latitude: Double, longitude: Double): String {
         return try {
-            val geocoder = Geocoder(context, Locale("id", "ID"))
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                var addressResult = "Lokasi tidak diketahui"
-                val addresses = suspendCancellableCoroutine<List<android.location.Address>> { continuation ->
-                    try {
-                        geocoder.getFromLocation(latitude, longitude, 1) { addresses ->
-                            if (continuation.isActive) continuation.resume(addresses)
+            // BUG 1 Fix: Batasi pengerjaan Geocoder maksimal 5 detik
+            withTimeoutOrNull(5000L) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    val addresses = suspendCancellableCoroutine<List<android.location.Address>> { continuation ->
+                        val isResumed = AtomicBoolean(false)
+                        val safeResume = { result: List<android.location.Address> ->
+                            if (continuation.isActive && isResumed.compareAndSet(false, true)) {
+                                continuation.resume(result)
+                            }
                         }
-                    } catch (e: Exception) {
-                        if (continuation.isActive) continuation.resume(emptyList())
+                        try {
+                            val geocoder = Geocoder(appContext, Locale("id", "ID"))
+                            geocoder.getFromLocation(latitude, longitude, 1) { addresses ->
+                                safeResume(addresses)
+                            }
+                        } catch (e: Exception) {
+                            safeResume(emptyList())
+                        }
+                    }
+                    if (addresses.isNotEmpty()) {
+                        val addr = addresses[0]
+                        val district = addr.locality ?: addr.subLocality ?: addr.subAdminArea ?: ""
+                        val city = addr.subAdminArea ?: addr.adminArea ?: ""
+                        formatAddressString(district, city)
+                    } else {
+                        "Lokasi tidak diketahui"
+                    }
+                } else {
+                    // BUG 1 Fix: Panggil Geocoder di API < 33 menggunakan Dispatchers.IO untuk mencegah ANR
+                    withContext(Dispatchers.IO) {
+                        val geocoder = Geocoder(appContext, Locale("id", "ID"))
+                        val addresses = geocoder.getFromLocation(latitude, longitude, 1)
+                        if (!addresses.isNullOrEmpty()) {
+                            val addr = addresses[0]
+                            val district = addr.locality ?: addr.subLocality ?: addr.subAdminArea ?: ""
+                            val city = addr.subAdminArea ?: addr.adminArea ?: ""
+                            formatAddressString(district, city)
+                        } else {
+                            "Lokasi tidak diketahui"
+                        }
                     }
                 }
-                if (addresses.isNotEmpty()) {
-                    val addr = addresses[0]
-                    val district = addr.locality ?: addr.subLocality ?: addr.subAdminArea ?: ""
-                    val city = addr.subAdminArea ?: addr.adminArea ?: ""
-                    addressResult = formatAddressString(district, city)
-                }
-                addressResult
-            } else {
-                val addresses = geocoder.getFromLocation(latitude, longitude, 1)
-                if (!addresses.isNullOrEmpty()) {
-                    val addr = addresses[0]
-                    val district = addr.locality ?: addr.subLocality ?: addr.subAdminArea ?: ""
-                    val city = addr.subAdminArea ?: addr.adminArea ?: ""
-                    formatAddressString(district, city)
-                } else {
-                    "Lokasi tidak diketahui"
-                }
-            }
+            } ?: "Lat: %.4f, Lon: %.4f".format(Locale.US, latitude, longitude)
         } catch (e: Exception) {
             Log.e("LocationService", "Gagal memproses Geocoder: ${e.message}")
             "Lat: %.4f, Lon: %.4f".format(Locale.US, latitude, longitude)
