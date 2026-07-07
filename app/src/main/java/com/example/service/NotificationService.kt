@@ -185,6 +185,20 @@ class NotificationService(private val context: Context) {
         }
     }
 
+    fun getAudioFileNameForPrayer(prayerName: String): String {
+        val prefs = SecurePrefs.get(context)
+        val key = when (prayerName.lowercase()) {
+            "subuh" -> "adzan_subuh_sound"
+            "dzuhur", "dhuhur" -> "adzan_dhuhr_sound"
+            "ashar" -> "adzan_asr_sound"
+            "maghrib" -> "adzan_maghrib_sound"
+            "isya", "isha" -> "adzan_isha_sound"
+            else -> "adzan_dhuhr_sound"
+        }
+        val choice = prefs.getString(key, "makkah") ?: "makkah"
+        return if (choice == "madinah") "adzan_fajr.mp3" else "adzan.mp3"
+    }
+
     /**
      * Memutar audio adzan dengan sistem berlapis:
      * 1. File MP3 valid di filesDir (tersalin dari assets atau custom)
@@ -193,7 +207,7 @@ class NotificationService(private val context: Context) {
      *
      * Menggunakan prepareAsync() agar tidak memblok main thread.
      */
-    fun playAdzanAudio(isFajr: Boolean) {
+    fun playAdzanAudio(isFajr: Boolean, prayerName: String? = null) {
         try {
             releasePlayer()
 
@@ -210,13 +224,22 @@ class NotificationService(private val context: Context) {
             // Acquire WakeLock agar CPU tidak tidur
             acquireWakeLock()
 
-            val audioFileName = if (isFajr) "adzan_fajr.mp3" else "adzan.mp3"
+            val audioFileName = if (prayerName != null) {
+                getAudioFileNameForPrayer(prayerName)
+            } else {
+                if (isFajr) "adzan_fajr.mp3" else "adzan.mp3"
+            }
 
             val player = MediaPlayer()
             
             // Set flag bermain menjadi true dan assign ke global instance
             isAudioPlaying.set(true)
             mediaPlayer = player
+
+            // Atur volume dari preferensi (default 80%)
+            val volumeInt = prefs.getInt("adzan_volume", 80)
+            val volumeFloat = volumeInt / 100f
+            player.setVolume(volumeFloat, volumeFloat)
 
             // Atur stream audio ke STREAM_ALARM untuk bypass silent mode
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -513,7 +536,7 @@ class NotificationService(private val context: Context) {
      * Memutar sampel adzan selama durasi tertentu (default 10 detik).
      * Jika saat ini sedang memutar, memanggil fungsi ini akan menghentikannya secara instan.
      */
-    fun previewAdzan(isFajr: Boolean, durationSeconds: Int = 10) {
+    fun previewAdzan(isFajr: Boolean, durationSeconds: Int = 10, prayerName: String? = null) {
         if (isPreviewPlaying.get()) {
             stopPreviewAdzan()
             return
@@ -523,10 +546,20 @@ class NotificationService(private val context: Context) {
             stopPreviewAdzan() // Pastikan preview sebelumnya mati bersih
             _previewState.value = PreviewState.Loading
 
-            val audioFileName = if (isFajr) "adzan_fajr.mp3" else "adzan.mp3"
+            val audioFileName = if (prayerName != null) {
+                getAudioFileNameForPrayer(prayerName)
+            } else {
+                if (isFajr) "adzan_fajr.mp3" else "adzan.mp3"
+            }
             val player = MediaPlayer()
             previewPlayer = player
             isPreviewPlaying.set(true)
+
+            // Set volume dari preferensi (default 80%)
+            val prefs = SecurePrefs.get(context)
+            val volumeInt = prefs.getInt("adzan_volume", 80)
+            val volumeFloat = volumeInt / 100f
+            player.setVolume(volumeFloat, volumeFloat)
 
             // Gunakan USAGE_MEDIA untuk pratinjau agar aman sesuai intensitas volume media sistem
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
@@ -663,20 +696,26 @@ class NotificationService(private val context: Context) {
                     }
                 }
 
-                // Jadwalkan pre-reminder 15 menit sebelum sholat
-                val preCalendar = (calendar.clone() as Calendar).apply {
-                    add(Calendar.MINUTE, -15)
-                }
-                if (preCalendar.timeInMillis > System.currentTimeMillis()) {
-                    scheduleExactAlarm(
-                        requestCode = alarmIndex + 100,
-                        triggerAtMs = preCalendar.timeInMillis,
-                        intent = Intent(context, AlarmReceiver::class.java).apply {
-                            action = ACTION_PRE_REMINDER
-                            putExtra(EXTRA_PRAYER_NAME, name)
-                        }
-                    )
-                    Log.d("NotificationService", "Pre-reminder $name dijadwalkan")
+                // Jadwalkan pre-reminder sesuai preferensi (enable_pre_reminder, pre_reminder_minutes)
+                val prefs = SecurePrefs.get(context)
+                val enablePreReminder = prefs.getBoolean("enable_pre_reminder", false)
+                val preReminderMin = prefs.getInt("pre_reminder_minutes", 15)
+
+                if (enablePreReminder) {
+                    val preCalendar = (calendar.clone() as Calendar).apply {
+                        add(Calendar.MINUTE, -preReminderMin)
+                    }
+                    if (preCalendar.timeInMillis > System.currentTimeMillis()) {
+                        scheduleExactAlarm(
+                            requestCode = alarmIndex + 100,
+                            triggerAtMs = preCalendar.timeInMillis,
+                            intent = Intent(context, AlarmReceiver::class.java).apply {
+                                action = ACTION_PRE_REMINDER
+                                putExtra(EXTRA_PRAYER_NAME, name)
+                            }
+                        )
+                        Log.d("NotificationService", "Pre-reminder $name dijadwalkan")
+                    }
                 }
 
                 // Jadwalkan alarm utama adzan
@@ -760,11 +799,15 @@ class AlarmReceiver : BroadcastReceiver() {
                         val isFajr    = intent.getBooleanExtra(NotificationService.EXTRA_IS_FAJR, false)
                         Log.d("AlarmReceiver", "Alarm: $prayerName (fajr=$isFajr)")
 
+                        val prefs = SecurePrefs.get(context)
+                        val adzanVolume = prefs.getInt("adzan_volume", 80)
+                        Log.d("AlarmReceiver", "Alarm volume preference: $adzanVolume%")
+
                         // Tampilkan notifikasi heads-up
                         showHeadsUpNotification(context, prayerName)
 
                         // Putar adzan (prepareAsync — tidak blok main thread)
-                        NotificationService.getInstance(context).playAdzanAudio(isFajr)
+                        NotificationService.getInstance(context).playAdzanAudio(isFajr, prayerName)
                     }
                     NotificationService.ACTION_PRE_REMINDER -> {
                         val prayerName = intent.getStringExtra(NotificationService.EXTRA_PRAYER_NAME) ?: "Sholat"
@@ -826,9 +869,12 @@ class AlarmReceiver : BroadcastReceiver() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
         )
 
+        val prefs = SecurePrefs.get(context)
+        val preReminderMin = prefs.getInt("pre_reminder_minutes", 15)
+
         val notification = NotificationCompat.Builder(context, NotificationService.CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
-            .setContentTitle("⏰ $prayerName dalam 15 menit")
+            .setContentTitle("⏰ $prayerName dalam $preReminderMin menit")
             .setContentText("Segera persiapkan diri untuk sholat $prayerName.")
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)

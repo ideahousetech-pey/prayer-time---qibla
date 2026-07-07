@@ -68,6 +68,9 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val adzanSettingsViewModel: id.ideahousetech.prayertime_qibla.viewmodel.AdzanSettingsViewModel = 
+        androidx.lifecycle.viewmodel.compose.viewModel(factory = id.ideahousetech.prayertime_qibla.viewmodel.AdzanSettingsViewModelFactory(context))
+
     val prefs = remember { SecurePrefs.get(context) }
     val scope = rememberCoroutineScope()
 
@@ -657,6 +660,11 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+
+            // PENGATURAN SUARA ADZAN SECTION
+            item {
+                AdzanSettingsSection(viewModel = adzanSettingsViewModel)
             }
 
             // 4. MANUAL LOCATION CALIBRATIONS
