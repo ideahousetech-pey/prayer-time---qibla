@@ -53,6 +53,37 @@ interface PrayerTrackerDao {
     @Query("SELECT * FROM prayer_tracker ORDER BY date DESC")
     fun getAllTrackersFlow(): Flow<List<PrayerTracker>>
 
+    @Query("SELECT * FROM prayer_tracker ORDER BY date DESC LIMIT :n")
+    fun getTrackersFlowForLastNDays(n: Int): Flow<List<PrayerTracker>>
+
+    @Query("SELECT date FROM prayer_tracker WHERE subuhStatus != 'None' AND dhuhrStatus != 'None' AND asrStatus != 'None' AND maghribStatus != 'None' AND isyaStatus != 'None' ORDER BY date ASC")
+    fun getCompletedDatesForStreakCalculation(): Flow<List<String>>
+
+    @Query("""
+        SELECT COALESCE(SUM(
+            (CASE WHEN subuhStatus = :status THEN 1 ELSE 0 END) +
+            (CASE WHEN dhuhrStatus = :status THEN 1 ELSE 0 END) +
+            (CASE WHEN asrStatus = :status THEN 1 ELSE 0 END) +
+            (CASE WHEN maghribStatus = :status THEN 1 ELSE 0 END) +
+            (CASE WHEN isyaStatus = :status THEN 1 ELSE 0 END)
+        ), 0) FROM prayer_tracker
+    """)
+    fun getTotalCountByStatus(status: String): Flow<Int>
+
+    @Query("""
+        SELECT COUNT(*) FROM (
+            SELECT subuhStatus AS status FROM prayer_tracker UNION ALL
+            SELECT dhuhrStatus AS status FROM prayer_tracker UNION ALL
+            SELECT asrStatus AS status FROM prayer_tracker UNION ALL
+            SELECT maghribStatus AS status FROM prayer_tracker UNION ALL
+            SELECT isyaStatus AS status FROM prayer_tracker
+        ) WHERE status != 'None' AND status != 'Halangan'
+    """)
+    fun getTotalDoneCount(): Flow<Int>
+
+    @Query("SELECT COUNT(*) FROM prayer_tracker WHERE subuhStatus != 'None' AND subuhStatus != 'Halangan'")
+    fun getSubuhDoneCount(): Flow<Int>
+
     @Query("SELECT * FROM prayer_tracker WHERE date LIKE :monthQuery ORDER BY date ASC")
     fun getTrackersFlowForMonth(monthQuery: String): Flow<List<PrayerTracker>>
 

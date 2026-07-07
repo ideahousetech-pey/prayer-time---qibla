@@ -7,6 +7,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.background
 
 /**
  * ==========================================
@@ -106,4 +112,37 @@ fun MyApplicationTheme(
  */
 val AppBackgroundGradient: Brush
     get() = Brush.verticalGradient(listOf(DeepNight, MidnightLayer))
+
+/**
+ * GPU-optimized cached repeating Islamic diamond background modifier.
+ * Avoids any per-frame object allocation and utilizes hardware acceleration.
+ */
+fun Modifier.islamicBackground(alpha: Float = 0.04f): Modifier = this
+    .background(AppBackgroundGradient)
+    .drawWithCache {
+        val sizePx = 60.dp.toPx()
+        val cols = (size.width / sizePx).toInt() + 1
+        val rows = (size.height / sizePx).toInt() + 1
+        val combinedPath = Path()
+        
+        for (col in 0..cols) {
+            for (row in 0..rows) {
+                val x = col * sizePx
+                val y = row * sizePx
+                combinedPath.moveTo(x + sizePx / 2, y)
+                combinedPath.lineTo(x + sizePx, y + sizePx / 2)
+                combinedPath.lineTo(x + sizePx / 2, y + sizePx)
+                combinedPath.lineTo(x, y + sizePx / 2)
+                combinedPath.close()
+            }
+        }
+        
+        onDrawBehind {
+            drawPath(
+                path = combinedPath,
+                color = StaticGoldPrimary.copy(alpha = alpha),
+                style = Stroke(width = 1.dp.toPx())
+            )
+        }
+    }
 

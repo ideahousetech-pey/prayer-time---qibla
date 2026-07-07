@@ -46,32 +46,8 @@ fun OnboardingScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(AppBackgroundGradient)
+            .islamicBackground(0.03f)
     ) {
-        // Dynamic repeating diamond outline background patterns
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val sizePx = 60.dp.toPx()
-            val cols = (size.width / sizePx).toInt() + 1
-            val rows = (size.height / sizePx).toInt() + 1
-            for (col in 0..cols) {
-                for (row in 0..rows) {
-                    val x = col * sizePx
-                    val y = row * sizePx
-                    val path = Path().apply {
-                        moveTo(x + sizePx / 2, y)
-                        lineTo(x + sizePx, y + sizePx / 2)
-                        lineTo(x + sizePx / 2, y + sizePx)
-                        lineTo(x, y + sizePx / 2)
-                        close()
-                    }
-                    drawPath(
-                        path = path,
-                        color = GoldPrimary.copy(alpha = 0.03f),
-                        style = Stroke(width = 1.dp.toPx())
-                    )
-                }
-            }
-        }
 
         // Main layout container childs
         Column(

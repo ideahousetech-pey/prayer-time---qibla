@@ -145,26 +145,8 @@ fun QiblaScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(AppBackgroundGradient)
+            .islamicBackground(0.04f)
     ) {
-        // Subtle Islamic background pattern
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val step = 80.dp.toPx()
-            var y = 0f
-            while (y < size.height) {
-                var x = 0f
-                while (x < size.width) {
-                    drawCircle(
-                        color  = Color(0x04D4AF37),
-                        radius = 30f,
-                        center = Offset(x, y),
-                        style  = androidx.compose.ui.graphics.drawscope.Stroke(width = 0.5f)
-                    )
-                    x += step
-                }
-                y += step
-            }
-        }
 
         Column(
             modifier = Modifier

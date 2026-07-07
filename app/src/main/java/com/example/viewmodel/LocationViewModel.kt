@@ -49,28 +49,44 @@ class LocationViewModel(context: Context) : ViewModel() {
         loadCachedLocation()
     }
 
+    private var refreshJob: kotlinx.coroutines.Job? = null
+    private var lastRefreshTime = 0L
+
     /**
      * Memperoleh lokasi perangkat terkini secara realtime menggunakan FusedLocationProviderClient.
      * Setelah koordinat didapat, memicu reverse-geocoding untuk memperbarui nama lokasi,
      * lalu menyimpan properti baru tersebut di SharedPreferences.
+     * Menggunakan cooldown 30 detik dan pembatalan job lama jika ada request baru berturut-turut.
      */
     fun refreshLocation() {
         if (_isManualLocation.value) {
             return
         }
-        viewModelScope.launch {
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastRefreshTime < 30_000) {
+            // Cooldown aktif, batalkan request demi efisiensi baterai & menghindari spamming GPS
+            return
+        }
+
+        refreshJob?.cancel()
+        refreshJob = viewModelScope.launch {
             _isLoading.value = true
-            val loc = locationService.getCurrentLocation()
-            if (loc != null) {
-                _userLocation.value = loc
-                val address = locationService.getAddressFromLocation(loc.latitude, loc.longitude)
-                _locationName.value = address
-                saveLocationToCache(loc.latitude, loc.longitude, address)
-            } else {
-                // Gunakan cache jika pembacaan GPS gagal
-                loadCachedLocation()
+            try {
+                val loc = locationService.getCurrentLocation()
+                if (loc != null) {
+                    _userLocation.value = loc
+                    val address = locationService.getAddressFromLocation(loc.latitude, loc.longitude)
+                    _locationName.value = address
+                    saveLocationToCache(loc.latitude, loc.longitude, address)
+                    _updateWidgetIfNeeded()
+                    lastRefreshTime = System.currentTimeMillis()
+                } else {
+                    // Gunakan cache jika pembacaan GPS gagal
+                    loadCachedLocation()
+                }
+            } finally {
+                _isLoading.value = false
             }
-            _isLoading.value = false
         }
     }
 
@@ -94,7 +110,7 @@ class LocationViewModel(context: Context) : ViewModel() {
             apply()
         }
         // Pastikan seluruh widget sinkron dengan data koordinat kustom yang baru diset manual
-        id.ideahousetech.prayertime_qibla.widget.PrayerWidgetHelper.updateAllWidgets(appContext)
+        _updateWidgetIfNeeded()
     }
 
     /**
@@ -116,7 +132,12 @@ class LocationViewModel(context: Context) : ViewModel() {
             putString(PrefsKeys.CACHED_ADDRESS, address)
             apply()
         }
-        // Pastikan seluruh widget diperbarui ketika koordinat terbaru berhasil ter-cache dari pembacaan GPS otomatis
+    }
+
+    /**
+     * Memperbarui seluruh widget dari satu titik operasi (Single Point Update)
+     */
+    private fun _updateWidgetIfNeeded() {
         id.ideahousetech.prayertime_qibla.widget.PrayerWidgetHelper.updateAllWidgets(appContext)
     }
 

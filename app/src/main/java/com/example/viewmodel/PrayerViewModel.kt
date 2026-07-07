@@ -73,7 +73,20 @@ class PrayerViewModel(context: Context) : ViewModel() {
 
     init {
         updateCurrentDateDisplays()
-        startCountdownTimer()
+        
+        // Monitor subscription count to conserve battery when screen is backgrounded or not displaying countdown
+        viewModelScope.launch {
+            _countdownString.subscriptionCount.collect { count ->
+                if (count > 0) {
+                    if (countdownJob == null || countdownJob?.isActive == false) {
+                        startCountdownTimer()
+                    }
+                } else {
+                    countdownJob?.cancel()
+                    countdownJob = null
+                }
+            }
+        }
     }
 
     /**
@@ -175,47 +188,85 @@ class PrayerViewModel(context: Context) : ViewModel() {
      * Algoritma penentu gerbang waktu sholat berikutnya paling mendekati waktu saat ini.
      * Mengkalkulasi selisih jam, menit, dan detik lalu menampilkannya sebagai countdown di layar.
      */
+    private data class ParsedPrayerTarget(val name: String, val hour: Int, val minute: Int, val originalString: String)
+    private var cachedTargets: List<ParsedPrayerTarget>? = null
+    private var cachedTargetsKey: String? = null
+
+    private fun getOrUpdateCachedTargets(times: PrayerTime): List<ParsedPrayerTarget> {
+        val key = "${times.fajr}|${times.dhuhr}|${times.asr}|${times.maghrib}|${times.isha}"
+        if (cachedTargets != null && cachedTargetsKey == key) {
+            return cachedTargets!!
+        }
+        
+        val list = mutableListOf<ParsedPrayerTarget>()
+        fun addParsed(name: String, timeStr: String?) {
+            if (!timeStr.isNullOrBlank()) {
+                val cleaned = timeStr.trim()
+                val match = Regex("^(\\d{1,2}):(\\d{2})").find(cleaned)
+                if (match != null) {
+                    val h = match.groupValues[1].toIntOrNull()
+                    val m = match.groupValues[2].toIntOrNull()
+                    if (h != null && m != null && h in 0..23 && m in 0..59) {
+                        list.add(ParsedPrayerTarget(name, h, m, cleaned))
+                    }
+                }
+            }
+        }
+        
+        addParsed("Subuh", times.fajr)
+        addParsed("Dzuhur", times.dhuhr)
+        addParsed("Ashar", times.asr)
+        addParsed("Maghrib", times.maghrib)
+        addParsed("Isya", times.isha)
+        
+        cachedTargets = list
+        cachedTargetsKey = key
+        return list
+    }
+
     private fun calculateNextPrayerCountdown(times: PrayerTime) {
+        val targets = getOrUpdateCachedTargets(times)
+        if (targets.isEmpty()) return
+
         val now = Calendar.getInstance()
         val currentMillis = now.timeInMillis
 
-        // Daftar waktu sholat hari ini
-        val prayerTimesList = listOf(
-            Triple("Subuh", times.fajr, false),
-            Triple("Dzuhur", times.dhuhr, false),
-            Triple("Ashar", times.asr, false),
-            Triple("Maghrib", times.maghrib, false),
-            Triple("Isya", times.isha, false)
-        )
-
         var foundNext = false
-        for (p in prayerTimesList) {
-            val name = p.first
-            val valStr = p.second
-            
-            val pCal = parseTimeStringToCalendar(valStr, false) ?: continue
-            if (pCal.timeInMillis > currentMillis) {
-                // Waktu sholat ini adalah sholat berikutnya hari ini!
-                _nextPrayerName.value = name
-                _nextPrayerTimeValue.value = valStr ?: ""
-                _nextPrayerLabel.value = name
+        val targetCal = Calendar.getInstance()
+
+        for (target in targets) {
+            targetCal.timeInMillis = currentMillis
+            targetCal.set(Calendar.HOUR_OF_DAY, target.hour)
+            targetCal.set(Calendar.MINUTE, target.minute)
+            targetCal.set(Calendar.SECOND, 0)
+            targetCal.set(Calendar.MILLISECOND, 0)
+
+            if (targetCal.timeInMillis > currentMillis) {
+                _nextPrayerName.value = target.name
+                _nextPrayerTimeValue.value = target.originalString
+                _nextPrayerLabel.value = target.name
                 
-                val diff = pCal.timeInMillis - currentMillis
+                val diff = targetCal.timeInMillis - currentMillis
                 _countdownString.value = formatMillisToCountdown(diff)
                 foundNext = true
                 break
             }
         }
 
-        // Jika semua sholat hari ini sudah lewat (contoh: sudah jam 21:00 sesudah Isya).
-        // Maka sholat berikutnya adalah Subuh BESOK HARI.
         if (!foundNext) {
-            _nextPrayerName.value = "Subuh"
-            _nextPrayerTimeValue.value = times.fajr ?: ""
+            val subuhTarget = targets.firstOrNull { it.name == "Subuh" } ?: targets.first()
+            _nextPrayerName.value = subuhTarget.name
+            _nextPrayerTimeValue.value = subuhTarget.originalString
             _nextPrayerLabel.value = "Subuh (Fajr) (Besok)"
             
-            val tomorrowSubuh = parseTimeStringToCalendar(times.fajr, true)
-            val diff = if (tomorrowSubuh != null) tomorrowSubuh.timeInMillis - currentMillis else 0L
+            targetCal.timeInMillis = currentMillis
+            targetCal.add(Calendar.DAY_OF_YEAR, 1)
+            targetCal.set(Calendar.HOUR_OF_DAY, subuhTarget.hour)
+            targetCal.set(Calendar.MINUTE, subuhTarget.minute)
+            targetCal.set(Calendar.SECOND, 0)
+            targetCal.set(Calendar.MILLISECOND, 0)
+
+            val diff = targetCal.timeInMillis - currentMillis
             _countdownString.value = formatMillisToCountdown(diff)
         }
     }

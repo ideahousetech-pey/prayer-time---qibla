@@ -137,8 +137,15 @@ class QiblaService(context: Context) : SensorEventListener {
                     var azimuthDeg = Math.toDegrees(smoothedRad).toFloat()
                     azimuthDeg = (azimuthDeg + 360f) % 360f
                     
-                    // Kirimkan nilai sudut terbaru secara halus ke subscriber
-                    _azimuthFlow.value = azimuthDeg
+                    // Dead zone filter: jika perubahan sudut sangat kecil (< 1 derajat), abaikan update untuk meredam noise sensor
+                    val prevAzimuth = _azimuthFlow.value
+                    var diff = kotlin.math.abs(azimuthDeg - prevAzimuth)
+                    if (diff > 180f) {
+                        diff = 360f - diff
+                    }
+                    if (diff >= 1f) {
+                        _azimuthFlow.value = azimuthDeg
+                    }
                 }
             }
         } catch (e: Exception) {

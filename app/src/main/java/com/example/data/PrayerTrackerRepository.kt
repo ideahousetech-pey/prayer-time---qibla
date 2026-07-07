@@ -27,6 +27,26 @@ class PrayerTrackerRepository(private val dao: PrayerTrackerDao) {
         return dao.getAllTrackersFlow()
     }
 
+    fun getTrackersFlowForLastNDays(n: Int): Flow<List<PrayerTracker>> {
+        return dao.getTrackersFlowForLastNDays(n)
+    }
+
+    fun getCompletedDatesForStreakCalculation(): Flow<List<String>> {
+        return dao.getCompletedDatesForStreakCalculation()
+    }
+
+    fun getTotalCountByStatus(status: String): Flow<Int> {
+        return dao.getTotalCountByStatus(status)
+    }
+
+    fun getTotalDoneCount(): Flow<Int> {
+        return dao.getTotalDoneCount()
+    }
+
+    fun getSubuhDoneCount(): Flow<Int> {
+        return dao.getSubuhDoneCount()
+    }
+
     /**
      * Memperoleh tracker untuk bulan tertentu, misalnya "2026-06-%".
      */

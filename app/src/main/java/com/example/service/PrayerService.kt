@@ -34,8 +34,11 @@ import kotlin.math.tan
  */
 class PrayerService(private val context: Context) {
 
-    // Konfigurasi HTTP Network client dengan logging interceptor
+    // Konfigurasi HTTP Network client dengan logging interceptor, Cache (5MB), dan RetryInterceptor
+    private val okHttpCache = okhttp3.Cache(context.cacheDir, 5 * 1024 * 1024L)
+
     private val httpClient = OkHttpClient.Builder()
+        .cache(okHttpCache)
         .addInterceptor(HttpLoggingInterceptor().apply {
             // Logging hanya aktif saat debug, TIDAK di release
             level = if (BuildConfig.DEBUG)
@@ -43,6 +46,7 @@ class PrayerService(private val context: Context) {
             else
                 HttpLoggingInterceptor.Level.NONE
         })
+        .addInterceptor(RetryInterceptor(context))
         .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
         .build()
@@ -89,10 +93,9 @@ class PrayerService(private val context: Context) {
         }
 
         if (cachedData != null) {
-            // Cek apakah koordinat saat ini mendekati koordinat ter-cache (jarak threshold ~0.05 derajat, sktr 5km)
-            val latDiff = kotlin.math.abs(cachedData.latitude - latitude)
-            val lonDiff = kotlin.math.abs(cachedData.longitude - longitude)
-            val isLocationValid = latDiff < 0.05 && lonDiff < 0.05
+            // Hitung jarak Haversine antara lokasi saat ini dan koordinat ter-cache
+            val distanceKm = haversineDistance(cachedData.latitude, cachedData.longitude, latitude, longitude)
+            val isLocationValid = distanceKm < 25.0 // Threshold 25km (wajar untuk satu kota/kabupaten)
             
             if (isLocationValid) {
                 try {
@@ -103,14 +106,14 @@ class PrayerService(private val context: Context) {
                     val adapter = moshi.adapter<List<PrayerTime>>(listType)
                     val deserialized = adapter.fromJson(cachedData.jsonData)
                     if (deserialized != null && deserialized.isNotEmpty()) {
-                        Log.d("PrayerService", "Menggunakan cache jadwal sholat dari database (Lat/Lon cocok)")
+                        Log.d("PrayerService", "Menggunakan cache jadwal sholat dari database (Jarak: ${String.format("%.2f", distanceKm)}km, < 25km)")
                         return@withContext deserialized.map { applyOffsetToPrayerTime(it, offset) }
                     }
                 } catch (e: Exception) {
                     Log.e("PrayerService", "Gagal deserialisasi cache JSON: ${e.message}")
                 }
             } else {
-                Log.d("PrayerService", "Cache ditemukan tetapi lokasi berbeda (latDiff: $latDiff, lonDiff: $lonDiff). Melakukan pengambilan baru...")
+                Log.d("PrayerService", "Cache ditemukan tetapi lokasi berada di luar batas threshold (Jarak: ${String.format("%.2f", distanceKm)}km, >= 25km). Melakukan pengambilan baru...")
             }
         }
 
@@ -446,6 +449,17 @@ class PrayerService(private val context: Context) {
         val monthIdx = (hMonthNum - 1).coerceIn(0, 11)
         return "$hDay ${months[monthIdx]} $hYear H"
     }
+
+    private fun haversineDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val r = 6371.0 // Radius bumi dalam kilometer
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = kotlin.math.sin(dLat / 2) * kotlin.math.sin(dLat / 2) +
+                kotlin.math.cos(Math.toRadians(lat1)) * kotlin.math.cos(Math.toRadians(lat2)) *
+                kotlin.math.sin(dLon / 2) * kotlin.math.sin(dLon / 2)
+        val c = 2 * kotlin.math.atan2(kotlin.math.sqrt(a), kotlin.math.sqrt(1 - a))
+        return r * c
+    }
 }
 
 /**
@@ -510,3 +524,62 @@ data class ApiHijriMonth(
     @Json(name = "en") val en: String,
     @Json(name = "ar") val ar: String
 )
+
+/**
+ * Interceptor untuk melakukan retry request otomatis sebanyak max 3 kali dengan exponential backoff.
+ * Hanya melakukan retry untuk network errors (IOException) dan membatalkan retry seketika jika offline.
+ */
+class RetryInterceptor(private val context: Context) : okhttp3.Interceptor {
+    override fun intercept(chain: okhttp3.Interceptor.Chain): okhttp3.Response {
+        val request = chain.request()
+        var response: okhttp3.Response? = null
+        var exception: java.io.IOException? = null
+        var tryCount = 0
+        val maxLimit = 3
+        var delayMs = 1000L
+
+        while (tryCount < maxLimit) {
+            // Jika terdeteksi offline sejak awal, jangan lakukan request/retry demi efisiensi baterai & daya
+            if (!isNetworkAvailable(context)) {
+                throw exception ?: java.io.IOException("Offline: Tidak ada koneksi internet")
+            }
+
+            try {
+                response = chain.proceed(request)
+                if (response.isSuccessful || (response.code in 400..599)) {
+                    return response
+                }
+            } catch (e: java.io.IOException) {
+                exception = e
+            }
+
+            tryCount++
+
+            if (tryCount < maxLimit) {
+                if (!isNetworkAvailable(context)) {
+                    throw exception ?: java.io.IOException("Offline: Koneksi internet terputus")
+                }
+                try {
+                    Thread.sleep(delayMs)
+                } catch (ie: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    throw exception ?: java.io.IOException("Interrupted during retry sleep", ie)
+                }
+                delayMs *= 2
+            }
+        }
+
+        if (response != null) return response
+        throw exception ?: java.io.IOException("Gagal koneksi setelah retry $maxLimit kali")
+    }
+
+    private fun isNetworkAvailable(context: Context): Boolean {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+        if (cm != null) {
+            val activeNetwork = cm.activeNetwork ?: return false
+            val capabilities = cm.getNetworkCapabilities(activeNetwork) ?: return false
+            return capabilities.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        }
+        return false
+    }
+}

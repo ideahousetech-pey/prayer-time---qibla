@@ -43,8 +43,12 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
         .flatMapLatest { date -> repository.getTrackerFlowForDate(date) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    // Seluruh riwayat untuk kalkulasi statistik & visualisasi
-    val allTrackers: StateFlow<List<PrayerTracker>> = repository.getAllTrackersFlow()
+    // Seluruh riwayat untuk kalkulasi statistik & visualisasi, dibatasi 365 hari untuk performa
+    val allTrackers: StateFlow<List<PrayerTracker>> = repository.getTrackersFlowForLastNDays(365)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Pasokan data terbatas (recent 30 hari) untuk weekly/monthly summary
+    val recentTrackers: StateFlow<List<PrayerTracker>> = repository.getTrackersFlowForLastNDays(30)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // State flow untuk memantau status strict/lenient secara reaktif
@@ -59,34 +63,22 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
         _isStrictMode.value = enabled
     }
 
-    // Pasokan live data streak berturut-turut aktif
+    // Pasokan live data streak berturut-turut aktif (diambil dari data 365 hari)
     val streakCount: StateFlow<Int> = combine(allTrackers, _isStrictMode) { list, isStrict ->
         calculateActiveStreak(list, isStrict)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
-    // Pasokan live data streak terbaik historis
+    // Pasokan live data streak terbaik historis (diambil dari data 365 hari)
     val bestStreakCount: StateFlow<Int> = allTrackers
         .map { list -> calculateBestStreak(list) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
-    // Pasokan total jumlah sholat berjamaah (high engagement metric)
-    val jamaahCount: StateFlow<Int> = allTrackers
-        .map { list ->
-            list.sumOf { t ->
-                listOf(t.subuhStatus, t.dhuhrStatus, t.asrStatus, t.maghribStatus, t.isyaStatus)
-                    .count { it == PrayerStatus.JAMAAH }
-            }
-        }
+    // Pasokan total jumlah sholat berjamaah (high engagement metric) langsung dihitung di DB via SQL aggregation
+    val jamaahCount: StateFlow<Int> = repository.getTotalCountByStatus("Jamaah")
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
-    // Pasokan total sholat tepat waktu / munfarid + jamaah + masbuq
-    val totalDoneCount: StateFlow<Int> = allTrackers
-        .map { list ->
-            list.sumOf { t ->
-                listOf(t.subuhStatus, t.dhuhrStatus, t.asrStatus, t.maghribStatus, t.isyaStatus)
-                    .count { it != PrayerStatus.NONE && it != PrayerStatus.HALANGAN }
-            }
-        }
+    // Pasokan total sholat tepat waktu / munfarid + jamaah + masbuq langsung dihitung di DB via SQL aggregation
+    val totalDoneCount: StateFlow<Int> = repository.getTotalDoneCount()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     // Filter tracker sebulan berjalan (untuk visualisasi kalender pelacak)
@@ -103,18 +95,18 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // -------------------------------------------------------------
-    // LIVE WEEKLY RECAP STATE (Past 7 Days Calculator)
+    // LIVE WEEKLY RECAP STATE (Past 7 Days Calculator) menggunakan 30 hari data terakhir
     // -------------------------------------------------------------
-    val weeklySummary: StateFlow<WeeklySpiritualSummary> = allTrackers
+    val weeklySummary: StateFlow<WeeklySpiritualSummary> = recentTrackers
         .map { list -> computeWeeklySummary(list) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), createDefaultWeeklySummary())
 
     // -------------------------------------------------------------
-    // LIVE MONTHLY RECAP STATE (Past 30 Days Calculator)
+    // LIVE MONTHLY RECAP STATE (Past 30 Days Calculator) menggunakan 30 hari data terakhir + status badge
     // -------------------------------------------------------------
-    val monthlySummary: StateFlow<MonthlySpiritualSummary> = allTrackers
-        .map { list -> computeMonthlySummary(list) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), createDefaultMonthlySummary())
+    val monthlySummary: StateFlow<MonthlySpiritualSummary> = combine(recentTrackers, badges) { recentList, badgeList ->
+        computeMonthlySummary(recentList, badgeList.count { it.isUnlocked })
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), createDefaultMonthlySummary())
 
 
     /**
@@ -542,7 +534,7 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
     /**
      * Menghitung Ringkasan Spiritual Bulanan (30 Hari terakhir) secara dinamis.
      */
-    private fun computeMonthlySummary(trackers: List<PrayerTracker>): MonthlySpiritualSummary {
+    private fun computeMonthlySummary(trackers: List<PrayerTracker>, unlockedCount: Int): MonthlySpiritualSummary {
         val daysAgo30 = getPastDateStrings(30)
         val trackerMap = trackers.associateBy { it.date }
         
@@ -569,8 +561,6 @@ class PrayerTrackerViewModel(context: Context) : ViewModel() {
 
         val adjustedTotal = totalOpportunities - halanganCount
         val completionPercentage = if (adjustedTotal > 0) completedCount.toFloat() / adjustedTotal else 0.0f
-        
-        val unlockedCount = computeDynamicBadges(trackers).count { it.isUnlocked }
         
         // Nama bulan saat ini
         val currentMonthLabel = SimpleDateFormat("MMMM yyyy", Locale("id", "ID")).format(Date())

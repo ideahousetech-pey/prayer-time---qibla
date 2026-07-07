@@ -69,6 +69,7 @@ import id.ideahousetech.prayertime_qibla.ui.TasbihScreen
 import id.ideahousetech.prayertime_qibla.ui.theme.MyApplicationTheme
 import id.ideahousetech.prayertime_qibla.ui.theme.AppBackgroundGradient
 import id.ideahousetech.prayertime_qibla.ui.theme.GoldPrimary
+import id.ideahousetech.prayertime_qibla.ui.theme.islamicBackground
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModelFactory
 import id.ideahousetech.prayertime_qibla.viewmodel.PrayerViewModel
@@ -267,33 +268,8 @@ fun MainLayout(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(AppBackgroundGradient)
+            .islamicBackground(0.04f)
     ) {
-        // Dynamic Repeating Diamond Islamic Pattern Overlay
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val sizePx = 60.dp.toPx() // Repeating every 60dp for elegant density
-            val cols = (size.width / sizePx).toInt() + 1
-            val rows = (size.height / sizePx).toInt() + 1
-            for (col in 0..cols) {
-                for (row in 0..rows) {
-                    val x = col * sizePx
-                    val y = row * sizePx
-                    
-                    val path = Path().apply {
-                        moveTo(x + sizePx / 2, y)
-                        lineTo(x + sizePx, y + sizePx / 2)
-                        lineTo(x + sizePx / 2, y + sizePx)
-                        lineTo(x, y + sizePx / 2)
-                        close()
-                    }
-                    drawPath(
-                        path = path,
-                        color = GoldPrimary.copy(alpha = 0.04f), // Delicate gold stroke
-                        style = Stroke(width = 1.dp.toPx())
-                    )
-                }
-            }
-        }
 
         Scaffold(
             containerColor = Color.Transparent,
