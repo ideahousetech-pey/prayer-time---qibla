@@ -3,6 +3,7 @@ package id.ideahousetech.prayertime_qibla
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import id.ideahousetech.prayertime_qibla.data.PrayerTracker
+import id.ideahousetech.prayertime_qibla.model.PrayerStatus
 import id.ideahousetech.prayertime_qibla.viewmodel.PrayerTrackerViewModel
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -33,7 +34,7 @@ class StreakCalculationTest {
     }
 
     private fun createTracker(date: String, isFull: Boolean): PrayerTracker {
-        val status = if (isFull) "Jamaah" else "None"
+        val status = if (isFull) PrayerStatus.JAMAAH else PrayerStatus.NONE
         return PrayerTracker(
             date = date,
             subuhStatus = status,

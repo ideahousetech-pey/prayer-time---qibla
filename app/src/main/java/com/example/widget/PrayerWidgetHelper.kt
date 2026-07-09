@@ -18,6 +18,8 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
+import id.ideahousetech.prayertime_qibla.utils.IntentSecurityUtils
+
 /**
  * Utilitas helper mandiri untuk mengelola, mengkalkulasi, dan merender views widget Waktu Sholat dan Kiblat.
  * Mendukung pembaharuan luring cepat, kalkulasi deterministik bebas leak, serta pencocokan warna visual Islamic Luxury.
@@ -132,8 +134,13 @@ object PrayerWidgetHelper {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
-        val flags = pendingIntentFlags()
-        return PendingIntent.getActivity(context, 0, intent, flags)
+        return IntentSecurityUtils.createSecurePendingIntent(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT,
+            IntentSecurityUtils.PendingIntentType.ACTIVITY
+        )
     }
 
     /**

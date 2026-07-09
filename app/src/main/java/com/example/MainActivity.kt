@@ -78,6 +78,8 @@ import id.ideahousetech.prayertime_qibla.viewmodel.QiblaViewModel
 import id.ideahousetech.prayertime_qibla.viewmodel.QiblaViewModelFactory
 import id.ideahousetech.prayertime_qibla.viewmodel.PrayerTrackerViewModel
 import id.ideahousetech.prayertime_qibla.viewmodel.PrayerTrackerViewModelFactory
+import id.ideahousetech.prayertime_qibla.viewmodel.ExploreViewModel
+import id.ideahousetech.prayertime_qibla.viewmodel.ExploreViewModelFactory
 import androidx.lifecycle.viewmodel.compose.viewModel
 import id.ideahousetech.prayertime_qibla.ui.ExploreScreen
 import id.ideahousetech.prayertime_qibla.ui.ProfileScreen
@@ -98,44 +100,46 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // 1. Load theme SYNCHRONOUSLY before setContent to prevent any theme flash/flicker
+        val context = this
+        val prefs = id.ideahousetech.prayertime_qibla.utils.SecurePrefs.get(context)
+        val savedThemeMode = prefs.getString(PrefsKeys.APP_THEME_MODE, "dark") ?: "dark"
+        val systemIsDark = (resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+        id.ideahousetech.prayertime_qibla.ui.theme.AppThemeState.updateTheme(savedThemeMode, systemIsDark)
+
         setContent {
-            val context = LocalContext.current
-            val prefs = remember { id.ideahousetech.prayertime_qibla.utils.SecurePrefs.get(context) }
+            val currentContext = LocalContext.current
+            val currentPrefs = remember { id.ideahousetech.prayertime_qibla.utils.SecurePrefs.get(currentContext) }
             
             var showSplash by remember { mutableStateOf(true) }
             var showOnboarding by remember {
-                mutableStateOf(!prefs.getBoolean(PrefsKeys.IS_ONBOARDING_COMPLETED, false))
+                mutableStateOf(!currentPrefs.getBoolean(PrefsKeys.IS_ONBOARDING_COMPLETED, false))
             }
             
-            // Initialize global state on start and manage splash timeout sequentially to prevent theme flicker
+            // Only delay splash screen timeout here; theme mode is already loaded synchronously
             LaunchedEffect(Unit) {
-                // 1. Load theme from prefs (sync, cepat)
-                id.ideahousetech.prayertime_qibla.ui.theme.AppThemeState.currentThemeMode.value = 
-                    prefs.getString(PrefsKeys.APP_THEME_MODE, "dark") ?: "dark"
-                
-                // 2. Delay splash
                 kotlinx.coroutines.delay(AppConfig.SPLASH_DURATION_MS)
-                
-                // 3. Hide splash
                 showSplash = false
             }
             
-            // Reactive theme tracking from our central singleton
-            val themeMode = id.ideahousetech.prayertime_qibla.ui.theme.AppThemeState.currentThemeMode.value
-
+            // Reactive theme tracking from our central singleton using 'by' delegation
+            val themeMode by id.ideahousetech.prayertime_qibla.ui.theme.AppThemeState.currentThemeMode
+ 
             // Inisialisasi ViewModel secara mandiri menggunakan Factory untuk kelayakan siklus hidup & pencegahan context leak
-            val locationViewModel: LocationViewModel = viewModel(factory = LocationViewModelFactory(context))
-            val prayerViewModel: PrayerViewModel = viewModel(factory = PrayerViewModelFactory(context))
-            val trackerViewModel: PrayerTrackerViewModel = viewModel(factory = PrayerTrackerViewModelFactory(context))
-            val qiblaViewModel: QiblaViewModel = viewModel(factory = QiblaViewModelFactory(context))
-
+            val locationViewModel: LocationViewModel = viewModel(factory = LocationViewModelFactory(currentContext))
+            val prayerViewModel: PrayerViewModel = viewModel(factory = PrayerViewModelFactory(currentContext))
+            val trackerViewModel: PrayerTrackerViewModel = viewModel(factory = PrayerTrackerViewModelFactory(currentContext))
+            val qiblaViewModel: QiblaViewModel = viewModel(factory = QiblaViewModelFactory(currentContext))
+            val exploreViewModel: ExploreViewModel = viewModel(factory = ExploreViewModelFactory(currentContext))
+ 
             MyApplicationTheme(themeMode = themeMode) {
                 if (showSplash) {
                     SplashScreen()
                 } else if (showOnboarding) {
                     id.ideahousetech.prayertime_qibla.ui.OnboardingScreen(
                         onCompleted = {
-                            prefs.edit().putBoolean(PrefsKeys.IS_ONBOARDING_COMPLETED, true).apply()
+                            currentPrefs.edit().putBoolean(PrefsKeys.IS_ONBOARDING_COMPLETED, true).apply()
                             showOnboarding = false
                         }
                     )
@@ -144,7 +148,8 @@ class MainActivity : ComponentActivity() {
                         locationViewModel = locationViewModel,
                         prayerViewModel = prayerViewModel,
                         trackerViewModel = trackerViewModel,
-                        qiblaViewModel = qiblaViewModel
+                        qiblaViewModel = qiblaViewModel,
+                        exploreViewModel = exploreViewModel
                     )
                 }
             }
@@ -174,7 +179,8 @@ fun MainLayout(
     locationViewModel: LocationViewModel,
     prayerViewModel: PrayerViewModel,
     trackerViewModel: id.ideahousetech.prayertime_qibla.viewmodel.PrayerTrackerViewModel,
-    qiblaViewModel: QiblaViewModel
+    qiblaViewModel: QiblaViewModel,
+    exploreViewModel: ExploreViewModel
 ) {
     val context = LocalContext.current
     var currentScreen by remember { mutableStateOf(AppScreen.SHOLAT) }
@@ -211,6 +217,7 @@ fun MainLayout(
             val intent = android.content.Intent(context, id.ideahousetech.prayertime_qibla.service.AdzanForegroundService::class.java).apply {
                 action = id.ideahousetech.prayertime_qibla.service.AdzanForegroundService.ACTION_START
             }
+            id.ideahousetech.prayertime_qibla.utils.IntentSecurityUtils.signIntent(intent)
             try {
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
                     context.startForegroundService(intent)
@@ -310,6 +317,7 @@ fun MainLayout(
                     )
                     AppScreen.EXPLORE -> ExploreScreen(
                         locationViewModel = locationViewModel,
+                        exploreViewModel = exploreViewModel,
                         onNavigateToScreen = { screen ->
                             navigateTo(screen)
                         }
@@ -405,7 +413,7 @@ fun SplashScreen() {
 
             Text(
                 text = "Mari Tegakkan Sholat Tepat Waktu",
-                color = Color.White.copy(alpha = 0.8f),
+                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.8f),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 letterSpacing = 0.5.sp,

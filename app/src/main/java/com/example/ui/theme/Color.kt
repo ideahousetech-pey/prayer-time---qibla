@@ -17,10 +17,24 @@ import androidx.compose.runtime.mutableStateOf
 
 // --- GLOBAL THEME COORDINATOR (Thread-safe, Compile-safe dynamic switchover)
 object AppThemeState {
-    @Volatile
-    var isDarkTheme: Boolean = true
+    private val _isDarkTheme = androidx.compose.runtime.mutableStateOf(true)
+    var isDarkTheme: Boolean
+        get() = _isDarkTheme.value
+        set(value) {
+            _isDarkTheme.value = value
+        }
     
-    val currentThemeMode = mutableStateOf("dark")
+    val currentThemeMode = androidx.compose.runtime.mutableStateOf("dark")
+
+    @Synchronized
+    fun updateTheme(mode: String, systemIsDark: Boolean) {
+        currentThemeMode.value = mode
+        isDarkTheme = when (mode) {
+            "light" -> false
+            "dark" -> true
+            else -> systemIsDark
+        }
+    }
 }
 
 // --- STATIC UNDERLYING TOKENS FOR SOLID CONSTANT REFERENCE

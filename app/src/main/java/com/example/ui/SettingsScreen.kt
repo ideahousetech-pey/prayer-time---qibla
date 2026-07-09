@@ -44,6 +44,8 @@ import androidx.compose.ui.unit.sp
 import id.ideahousetech.prayertime_qibla.ui.theme.*
 import id.ideahousetech.prayertime_qibla.utils.SecurePrefs
 import id.ideahousetech.prayertime_qibla.utils.PrefsKeys
+import id.ideahousetech.prayertime_qibla.utils.KeyStoreDiagnostics
+import id.ideahousetech.prayertime_qibla.utils.PrefsMigration
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
 import id.ideahousetech.prayertime_qibla.viewmodel.PrayerViewModel
 import id.ideahousetech.prayertime_qibla.service.NotificationService
@@ -102,6 +104,11 @@ fun SettingsScreen(
     val notificationService = remember { NotificationService.getInstance(context) }
     val copyProgressState by notificationService.copyProgress.collectAsState()
     val previewState by notificationService.previewState.collectAsState()
+
+    var isEncryptionActive by remember { mutableStateOf(SecurePrefs.isEncryptionActive(context)) }
+    var showDiagnosticsDialog by remember { mutableStateOf(false) }
+    var diagnosticsResult by remember { mutableStateOf<KeyStoreDiagnostics.DiagnosticResult?>(null) }
+    var showResetConfirmation by remember { mutableStateOf(false) }
 
     fun triggerPrayerReload() {
         userLocation?.let {
@@ -458,23 +465,24 @@ fun SettingsScreen(
                                 )
                                 modes.forEach { (modeKey, modeName) ->
                                     val isSelected = appThemeMode == modeKey
+                                    val systemIsDark = androidx.compose.foundation.isSystemInDarkTheme()
                                     Button(
                                         onClick = {
                                             prefs.edit().putString(PrefsKeys.APP_THEME_MODE, modeKey).apply()
-                                            id.ideahousetech.prayertime_qibla.ui.theme.AppThemeState.currentThemeMode.value = modeKey
+                                            id.ideahousetech.prayertime_qibla.ui.theme.AppThemeState.updateTheme(modeKey, systemIsDark)
                                             appThemeMode = modeKey
                                         },
                                         modifier = Modifier
                                             .weight(1f)
                                             .height(36.dp)
                                             .border(
-                                                width = if (isSelected) 1.dp else 0.dp,
-                                                color = if (isSelected) GoldPrimary else Color.Transparent,
+                                                width = if (isSelected) 1.5.dp else 1.dp,
+                                                color = if (isSelected) GoldPrimary else DividerLine,
                                                 shape = RoundedCornerShape(8.dp)
                                             ),
                                         colors = ButtonDefaults.buttonColors(
-                                            containerColor = if (isSelected) CardElevated else DividerLine.copy(alpha = 0.6f),
-                                            contentColor = if (isSelected) GoldPrimary else TextSecondary
+                                            containerColor = if (isSelected) GoldPrimary else CardElevated,
+                                            contentColor = if (isSelected) (if (AppThemeState.isDarkTheme) StaticDeepNight else Color.White) else TextSecondary
                                         ),
                                         shape = RoundedCornerShape(8.dp),
                                         contentPadding = PaddingValues(0.dp)
@@ -531,7 +539,8 @@ fun SettingsScreen(
                                         checkedThumbColor = GoldPrimary,
                                         checkedTrackColor = TealDim,
                                         uncheckedThumbColor = TextMuted,
-                                        uncheckedTrackColor = Color.Transparent
+                                        uncheckedTrackColor = CardElevated,
+                                        uncheckedBorderColor = DividerLine
                                     )
                                 )
                             }
@@ -611,7 +620,8 @@ fun SettingsScreen(
                                         checkedThumbColor = GoldPrimary,
                                         checkedTrackColor = TealDim,
                                         uncheckedThumbColor = TextMuted,
-                                        uncheckedTrackColor = Color.Transparent
+                                        uncheckedTrackColor = CardElevated,
+                                        uncheckedBorderColor = DividerLine
                                     )
                                 )
                             }
@@ -653,7 +663,8 @@ fun SettingsScreen(
                                         checkedThumbColor = GoldPrimary,
                                         checkedTrackColor = TealDim,
                                         uncheckedThumbColor = TextMuted,
-                                        uncheckedTrackColor = Color.Transparent
+                                        uncheckedTrackColor = CardElevated,
+                                        uncheckedBorderColor = DividerLine
                                     )
                                 )
                             }
@@ -792,7 +803,10 @@ fun SettingsScreen(
                                         focusedTextColor = TextPrimary,
                                         unfocusedTextColor = TextPrimary,
                                         focusedBorderColor = GoldPrimary,
-                                        unfocusedBorderColor = DividerLine
+                                        unfocusedBorderColor = DividerLine,
+                                        focusedContainerColor = CardElevated,
+                                        unfocusedContainerColor = CardElevated,
+                                        disabledContainerColor = CardElevated
                                     )
                                 )
 
@@ -800,7 +814,7 @@ fun SettingsScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .heightIn(max = 120.dp)
-                                        .background(DeepNight.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                                        .background(CardElevated.copy(alpha = 0.7f), RoundedCornerShape(10.dp))
                                         .padding(4.dp)
                                 ) {
                                     LazyColumn(
@@ -1123,6 +1137,101 @@ fun SettingsScreen(
                 }
             }
 
+            // DIAGNOSTIK & KEAMANAN DATA
+            item {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    SettingsSectionHeader(title = "DIAGNOSTIK & KEAMANAN DATA", icon = Icons.Outlined.Security)
+                    Spacer(Modifier.height(8.dp))
+                    IslamicGlassCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isEncryptionActive) TealDim.copy(alpha = 0.2f) else WarningAmber.copy(alpha = 0.15f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = if (isEncryptionActive) Icons.Default.Lock else Icons.Default.LockOpen,
+                                        contentDescription = null,
+                                        tint = if (isEncryptionActive) TealAccent else WarningAmber,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = if (isEncryptionActive) "Enkripsi KeyStore Aktif" else "Enkripsi Tidak Tersedia",
+                                        fontSize = 12.sp,
+                                        fontFamily = CinzelFont,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isEncryptionActive) TealAccent else WarningAmber
+                                    )
+                                    Text(
+                                        text = if (isEncryptionActive) {
+                                            "Data sensitif dilindungi hardware AES-256 GCM."
+                                        } else {
+                                            "Mode Fallback Aktif. Koordinat diamankan di memori."
+                                        },
+                                        fontSize = 9.sp,
+                                        fontFamily = NunitoFont,
+                                        color = TextSecondary
+                                    )
+                                }
+                            }
+
+                            HorizontalDivider(color = DividerLine, thickness = 0.5.dp)
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        diagnosticsResult = KeyStoreDiagnostics.performDiagnostics()
+                                        showDiagnosticsDialog = true
+                                    },
+                                    modifier = Modifier.weight(1f).height(32.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = CardElevated),
+                                    border = BorderStroke(1.dp, DividerLine),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(0.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(Icons.Default.Build, contentDescription = null, tint = GoldPrimary, modifier = Modifier.size(12.dp))
+                                        Text("Tes Diagnosa", fontSize = 10.sp, color = TextPrimary, fontFamily = NunitoFont, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+
+                                Button(
+                                    onClick = { showResetConfirmation = true },
+                                    modifier = Modifier.weight(1f).height(32.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = CardElevated),
+                                    border = BorderStroke(1.dp, DividerLine),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(0.dp)
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Icon(Icons.Default.Refresh, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(12.dp))
+                                        Text("Reset & Pulihkan", fontSize = 10.sp, color = TextPrimary, fontFamily = NunitoFont, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             // ABOUT FOOTER
             item {
                 Column(
@@ -1152,6 +1261,127 @@ fun SettingsScreen(
                     )
                 }
             }
+        }
+
+        if (showDiagnosticsDialog && diagnosticsResult != null) {
+            AlertDialog(
+                onDismissRequest = { showDiagnosticsDialog = false },
+                icon = {
+                    Icon(
+                        imageVector = if (diagnosticsResult!!.isHealthy) Icons.Default.CheckCircle else Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = if (diagnosticsResult!!.isHealthy) TealAccent else WarningAmber,
+                        modifier = Modifier.size(40.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        text = "Hasil Diagnosa KeyStore",
+                        fontFamily = CinzelFont,
+                        fontWeight = FontWeight.Bold,
+                        color = GoldLight,
+                        fontSize = 16.sp
+                    )
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Status: ${if (diagnosticsResult!!.isHealthy) "SANGAT SEHAT (SEMENTARA/HARDWARE)" else "TERGANGGU (FALLBACK)"}",
+                            fontFamily = NunitoFont,
+                            fontWeight = FontWeight.Bold,
+                            color = if (diagnosticsResult!!.isHealthy) TealAccent else WarningAmber,
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            text = "Hardware Backed: ${if (diagnosticsResult!!.isHardwareBacked) "Ya 🛡️" else "Tidak ⚠️"}",
+                            fontFamily = NunitoFont,
+                            fontSize = 11.sp,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = diagnosticsResult!!.errorMessage,
+                            fontFamily = NunitoFont,
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                        HorizontalDivider(color = DividerLine, thickness = 0.5.dp)
+                        Text(
+                            text = "Saran / Solusi:",
+                            fontFamily = CinzelFont,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = GoldDim
+                        )
+                        Text(
+                            text = diagnosticsResult!!.suggestion,
+                            fontFamily = NunitoFont,
+                            fontSize = 11.sp,
+                            color = TextSecondary
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = { showDiagnosticsDialog = false },
+                        colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary)
+                    ) {
+                        Text("Tutup", color = DeepNight)
+                    }
+                },
+                containerColor = CardElevated,
+                shape = RoundedCornerShape(16.dp)
+            )
+        }
+
+        if (showResetConfirmation) {
+            AlertDialog(
+                onDismissRequest = { showResetConfirmation = false },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = null,
+                        tint = WarningAmber,
+                        modifier = Modifier.size(40.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        text = "Konfirmasi Reset Penyimpanan",
+                        fontFamily = CinzelFont,
+                        fontWeight = FontWeight.Bold,
+                        color = GoldLight,
+                        fontSize = 16.sp
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Apakah Anda yakin ingin mereset KeyStore dan inisiasi ulang preferensi aman?\n\nTindakan ini akan memulihkan data non-sensitif (seperti tema dan onboarding), namun koordinat GPS manual Anda perlu dimasukkan ulang.",
+                        fontFamily = NunitoFont,
+                        fontSize = 12.sp,
+                        color = TextSecondary
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showResetConfirmation = false
+                            PrefsMigration.handleCorruptedKeystore(context)
+                            isEncryptionActive = SecurePrefs.isEncryptionActive(context)
+                            Toast.makeText(context, "Sistem penyimpanan telah di-reset & di-inisiasi ulang.", Toast.LENGTH_LONG).show()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
+                    ) {
+                        Text("Ya, Reset", color = Color.White)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showResetConfirmation = false }) {
+                        Text("Batal", color = TextSecondary)
+                    }
+                },
+                containerColor = CardElevated,
+                shape = RoundedCornerShape(16.dp)
+            )
         }
     }
 }

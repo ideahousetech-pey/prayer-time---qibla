@@ -75,14 +75,17 @@ fun MyApplicationTheme(
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
+    val systemIsDark = isSystemInDarkTheme()
     val darkTheme = when (themeMode) {
         "light" -> false
         "dark" -> true
-        else -> isSystemInDarkTheme()
+        else -> systemIsDark
     }
     
-    // Sync JVM state for global static coordinate stability
-    AppThemeState.isDarkTheme = darkTheme
+    // Sync state safely using SideEffect after successful composition
+    androidx.compose.runtime.SideEffect {
+        AppThemeState.updateTheme(themeMode, systemIsDark)
+    }
 
     val colors = if (darkTheme) {
         AppColorScheme
@@ -111,38 +114,60 @@ fun MyApplicationTheme(
  * Dynamic and re-composes automatically on theme changes.
  */
 val AppBackgroundGradient: Brush
-    get() = Brush.verticalGradient(listOf(DeepNight, MidnightLayer))
+    @Composable
+    get() = rememberAppBackgroundBrush()
+
+/**
+ * Composable function to construct and cache AppBackground Brush
+ */
+@Composable
+fun rememberAppBackgroundBrush(): Brush {
+    val isDark = AppThemeState.isDarkTheme
+    return remember(isDark) {
+        val topColor = if (isDark) StaticDeepNight else Color(0xFFFAF9F6)
+        val bottomColor = if (isDark) StaticMidnightLayer else Color(0xFFF4F1EA)
+        Brush.verticalGradient(listOf(topColor, bottomColor))
+    }
+}
 
 /**
  * GPU-optimized cached repeating Islamic diamond background modifier.
  * Avoids any per-frame object allocation and utilizes hardware acceleration.
  */
-fun Modifier.islamicBackground(alpha: Float = 0.04f): Modifier = this
-    .background(AppBackgroundGradient)
-    .drawWithCache {
-        val sizePx = 60.dp.toPx()
-        val cols = (size.width / sizePx).toInt() + 1
-        val rows = (size.height / sizePx).toInt() + 1
-        val combinedPath = Path()
-        
-        for (col in 0..cols) {
-            for (row in 0..rows) {
-                val x = col * sizePx
-                val y = row * sizePx
-                combinedPath.moveTo(x + sizePx / 2, y)
-                combinedPath.lineTo(x + sizePx, y + sizePx / 2)
-                combinedPath.lineTo(x + sizePx / 2, y + sizePx)
-                combinedPath.lineTo(x, y + sizePx / 2)
-                combinedPath.close()
+@Composable
+fun Modifier.islamicBackground(alpha: Float? = null): Modifier {
+    val backgroundBrush = rememberAppBackgroundBrush()
+    val isDark = AppThemeState.isDarkTheme
+    val patternAlpha = alpha ?: (if (isDark) 0.04f else 0.08f)
+    val patternColor = if (isDark) StaticGoldPrimary else Color(0xFFC29D38)
+
+    return this
+        .background(backgroundBrush)
+        .drawWithCache {
+            val sizePx = 60.dp.toPx()
+            val cols = (size.width / sizePx).toInt() + 1
+            val rows = (size.height / sizePx).toInt() + 1
+            val combinedPath = Path()
+            
+            for (col in 0..cols) {
+                for (row in 0..rows) {
+                    val x = col * sizePx
+                    val y = row * sizePx
+                    combinedPath.moveTo(x + sizePx / 2, y)
+                    combinedPath.lineTo(x + sizePx, y + sizePx / 2)
+                    combinedPath.lineTo(x + sizePx / 2, y + sizePx)
+                    combinedPath.lineTo(x, y + sizePx / 2)
+                    combinedPath.close()
+                }
+            }
+            
+            onDrawBehind {
+                drawPath(
+                    path = combinedPath,
+                    color = patternColor.copy(alpha = patternAlpha),
+                    style = Stroke(width = 1.dp.toPx())
+                )
             }
         }
-        
-        onDrawBehind {
-            drawPath(
-                path = combinedPath,
-                color = StaticGoldPrimary.copy(alpha = alpha),
-                style = Stroke(width = 1.dp.toPx())
-            )
-        }
-    }
+}
 

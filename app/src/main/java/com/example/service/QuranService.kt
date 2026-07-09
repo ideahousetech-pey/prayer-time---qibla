@@ -15,6 +15,11 @@ import java.util.concurrent.TimeUnit
 class QuranService {
 
     private val httpClient = OkHttpClient.Builder()
+        .addInterceptor(SecurityInterceptor())
+        .hostnameVerifier { hostname, session ->
+            val defaultVerifier = javax.net.ssl.HttpsURLConnection.getDefaultHostnameVerifier()
+            defaultVerifier.verify(hostname, session) && (hostname == "equran.id" || hostname.endsWith(".equran.id"))
+        }
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(15, TimeUnit.SECONDS)
         .build()

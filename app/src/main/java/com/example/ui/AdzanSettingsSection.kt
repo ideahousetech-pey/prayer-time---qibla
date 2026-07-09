@@ -88,7 +88,8 @@ fun AdzanSettingsSection(
                             checkedThumbColor = GoldPrimary,
                             checkedTrackColor = TealDim,
                             uncheckedThumbColor = TextMuted,
-                            uncheckedTrackColor = Color.Transparent
+                            uncheckedTrackColor = CardElevated,
+                            uncheckedBorderColor = DividerLine
                         )
                     )
                 }
@@ -210,7 +211,8 @@ fun AdzanSettingsSection(
                             checkedThumbColor = GoldPrimary,
                             checkedTrackColor = TealDim,
                             uncheckedThumbColor = TextMuted,
-                            uncheckedTrackColor = Color.Transparent
+                            uncheckedTrackColor = CardElevated,
+                            uncheckedBorderColor = DividerLine
                         )
                     )
                 }

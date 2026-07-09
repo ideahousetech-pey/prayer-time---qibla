@@ -22,6 +22,7 @@ import id.ideahousetech.prayertime_qibla.model.PrayerTime
 import id.ideahousetech.prayertime_qibla.utils.SecurePrefs
 import id.ideahousetech.prayertime_qibla.utils.PrefsKeys
 import id.ideahousetech.prayertime_qibla.utils.pendingIntentFlags
+import id.ideahousetech.prayertime_qibla.utils.IntentSecurityUtils
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -706,27 +707,35 @@ class NotificationService(private val context: Context) {
                         add(Calendar.MINUTE, -preReminderMin)
                     }
                     if (preCalendar.timeInMillis > System.currentTimeMillis()) {
+                        val alarmIntent = Intent(context, AlarmReceiver::class.java).apply {
+                            action = ACTION_PRE_REMINDER
+                            putExtra(EXTRA_PRAYER_NAME, name)
+                        }
+                        // Sign the intent with the target execution timestamp
+                        IntentSecurityUtils.signScheduledIntent(alarmIntent, preCalendar.timeInMillis)
+                        
                         scheduleExactAlarm(
                             requestCode = alarmIndex + 100,
                             triggerAtMs = preCalendar.timeInMillis,
-                            intent = Intent(context, AlarmReceiver::class.java).apply {
-                                action = ACTION_PRE_REMINDER
-                                putExtra(EXTRA_PRAYER_NAME, name)
-                            }
+                            intent = alarmIntent
                         )
                         Log.d("NotificationService", "Pre-reminder $name dijadwalkan")
                     }
                 }
 
                 // Jadwalkan alarm utama adzan
+                val mainAlarmIntent = Intent(context, AlarmReceiver::class.java).apply {
+                    action = ACTION_PLAY_ADZAN
+                    putExtra(EXTRA_PRAYER_NAME, name)
+                    putExtra(EXTRA_IS_FAJR, isFajr)
+                }
+                // Sign the intent with the target execution timestamp
+                IntentSecurityUtils.signScheduledIntent(mainAlarmIntent, calendar.timeInMillis)
+
                 scheduleExactAlarm(
                     requestCode = alarmIndex,
                     triggerAtMs = calendar.timeInMillis,
-                    intent = Intent(context, AlarmReceiver::class.java).apply {
-                        action = ACTION_PLAY_ADZAN
-                        putExtra(EXTRA_PRAYER_NAME, name)
-                        putExtra(EXTRA_IS_FAJR, isFajr)
-                    }
+                    intent = mainAlarmIntent
                 )
                 Log.d("NotificationService", "Alarm $name dijadwalkan pukul $timeStr")
                 alarmIndex++
@@ -738,9 +747,13 @@ class NotificationService(private val context: Context) {
     }
 
     private fun scheduleExactAlarm(requestCode: Int, triggerAtMs: Long, intent: Intent) {
-        val flags = pendingIntentFlags()
-
-        val pendingIntent = PendingIntent.getBroadcast(context, requestCode, intent, flags)
+        val pendingIntent = IntentSecurityUtils.createSecurePendingIntent(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT,
+            IntentSecurityUtils.PendingIntentType.BROADCAST
+        )
 
         when {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
@@ -789,28 +802,59 @@ class NotificationService(private val context: Context) {
 
 class AlarmReceiver : BroadcastReceiver() {
 
+    companion object {
+        private const val TAG = "AlarmReceiver"
+        private val lastActionTimes = java.util.concurrent.ConcurrentHashMap<String, Long>()
+        private const val RATE_LIMIT_WINDOW_MS = 2000L // 2 detik per action
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
+        Log.d(TAG, "onReceive dipanggil dengan action: ${intent.action}")
+
+        // 1. Verifikasi asal pemanggil & Tanda tangan Kriptografis
+        if (!IntentSecurityUtils.isIntentFromTrustedSource(context, intent)) {
+            Log.e(TAG, "ALERT KEAMANAN: BroadcastReceiver mendeteksi intent palsu/tidak sah!")
+            return
+        }
+
+        val action = intent.action ?: return
+
+        // 2. Pembatasan Frekuensi (Rate Limiting) per aksi
+        val now = System.currentTimeMillis()
+        val lastTime = lastActionTimes[action] ?: 0L
+        if (now - lastTime < RATE_LIMIT_WINDOW_MS) {
+            Log.w(TAG, "Rate limit hit untuk aksi: $action. Diabaikan.")
+            return
+        }
+        lastActionTimes[action] = now
+
+        // 3. Sanitasi Extras (Pencegahan Eksploitasi Deserialisasi)
+        val cleanBundle = IntentSecurityUtils.sanitizeIntentExtras(intent)
+        val sanitizedIntent = Intent(intent).apply {
+            replaceExtras(cleanBundle)
+        }
+
         val pendingResult = goAsync()
         CoroutineScope(Dispatchers.Default).launch {
             try {
-                when (intent.action) {
+                when (sanitizedIntent.action) {
                     NotificationService.ACTION_PLAY_ADZAN -> {
-                        val prayerName = intent.getStringExtra(NotificationService.EXTRA_PRAYER_NAME) ?: "Sholat"
-                        val isFajr    = intent.getBooleanExtra(NotificationService.EXTRA_IS_FAJR, false)
-                        Log.d("AlarmReceiver", "Alarm: $prayerName (fajr=$isFajr)")
+                        val prayerName = sanitizedIntent.getStringExtra(NotificationService.EXTRA_PRAYER_NAME) ?: "Sholat"
+                        val isFajr    = sanitizedIntent.getBooleanExtra(NotificationService.EXTRA_IS_FAJR, false)
+                        Log.d(TAG, "Alarm terverifikasi sukses: $prayerName (fajr=$isFajr)")
 
                         val prefs = SecurePrefs.get(context)
                         val adzanVolume = prefs.getInt("adzan_volume", 80)
-                        Log.d("AlarmReceiver", "Alarm volume preference: $adzanVolume%")
+                        Log.d(TAG, "Alarm volume preference: $adzanVolume%")
 
-                        // Tampilkan notifikasi heads-up
+                        // Tampilkan notifikasi heads-up secara aman
                         showHeadsUpNotification(context, prayerName)
 
-                        // Putar adzan (prepareAsync — tidak blok main thread)
+                        // Putar adzan
                         NotificationService.getInstance(context).playAdzanAudio(isFajr, prayerName)
                     }
                     NotificationService.ACTION_PRE_REMINDER -> {
-                        val prayerName = intent.getStringExtra(NotificationService.EXTRA_PRAYER_NAME) ?: "Sholat"
+                        val prayerName = sanitizedIntent.getStringExtra(NotificationService.EXTRA_PRAYER_NAME) ?: "Sholat"
                         showPreReminderNotification(context, prayerName)
                     }
                     NotificationService.ACTION_STOP_ADZAN -> {
@@ -820,7 +864,7 @@ class AlarmReceiver : BroadcastReceiver() {
                     }
                 }
             } catch (e: Exception) {
-                Log.e("AlarmReceiver", "Error in async onReceive: ${e.message}", e)
+                Log.e(TAG, "Error in async onReceive: ${e.message}", e)
             } finally {
                 pendingResult.finish()
             }
@@ -830,18 +874,26 @@ class AlarmReceiver : BroadcastReceiver() {
     private fun showHeadsUpNotification(context: Context, prayerName: String) {
         val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        val openPi = PendingIntent.getActivity(
-            context, 0,
-            context.packageManager.getLaunchIntentForPackage(context.packageName)
-                ?.apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK },
-            pendingIntentFlags(update = false)
+        val rawLaunchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            ?.apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK }
+            ?: Intent()
+        val openPi = IntentSecurityUtils.createSecurePendingIntent(
+            context,
+            0,
+            rawLaunchIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT,
+            IntentSecurityUtils.PendingIntentType.ACTIVITY
         )
-        val stopPi = PendingIntent.getBroadcast(
-            context, 99,
-            Intent(context, AlarmReceiver::class.java).apply {
-                action = NotificationService.ACTION_STOP_ADZAN
-            },
-            pendingIntentFlags(update = true)
+
+        val stopIntent = Intent(context, AlarmReceiver::class.java).apply {
+            action = NotificationService.ACTION_STOP_ADZAN
+        }
+        val stopPi = IntentSecurityUtils.createSecurePendingIntent(
+            context,
+            99,
+            stopIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT,
+            IntentSecurityUtils.PendingIntentType.BROADCAST
         )
 
         val notification = NotificationCompat.Builder(context, NotificationService.CHANNEL_ID)

@@ -1,83 +1,64 @@
 package id.ideahousetech.prayertime_qibla.ui
 
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import id.ideahousetech.prayertime_qibla.AppScreen
+import id.ideahousetech.prayertime_qibla.model.Mosque
+import id.ideahousetech.prayertime_qibla.model.MosqueUiState
 import id.ideahousetech.prayertime_qibla.ui.theme.*
+import id.ideahousetech.prayertime_qibla.viewmodel.ExploreViewModel
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
 
 /**
  * ExploreScreen mendirikan sentral eksplorasi fitur ibadah sekunder.
- * Memadukan grid modern 2026 dng visualisasi Masjid Terdekat dan Kajian Islami premium.
+ * Memadukan pencarian Masjid Terdekat real menggunakan Google Places API & fallback Mock yang andal.
  */
 @Composable
 fun ExploreScreen(
     locationViewModel: LocationViewModel,
+    exploreViewModel: ExploreViewModel,
     onNavigateToScreen: (AppScreen) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val userLocation by locationViewModel.userLocation.collectAsState()
     val locationName by locationViewModel.locationName.collectAsState()
+    val isLocationLoading by locationViewModel.isLoading.collectAsState()
 
-    val firstRegionPart = remember(locationName) {
-        val parts = locationName.split(",")
-        val p = parts.firstOrNull()?.trim() ?: "Ambon"
-        if (p == "Menunggu GPS...") "Kota" else p
-    }
+    val mosqueState by exploreViewModel.mosqueState.collectAsState()
+    val searchRadius by exploreViewModel.searchRadius.collectAsState()
 
-    val masjid1Name = remember(firstRegionPart) {
-        if (locationName == "Menunggu GPS..." || locationName.isEmpty()) {
-            "Masjid Raya Baiturrahman"
-        } else {
-            "Masjid Agung $firstRegionPart"
-        }
-    }
-
-    val masjid2Name = remember(firstRegionPart) {
-        if (locationName == "Menunggu GPS..." || locationName.isEmpty()) {
-            "Masjid Baitul Makmur"
-        } else {
-            "Masjid Al-Mutaqin $firstRegionPart"
-        }
-    }
-
-    val masjid1Address = remember(locationName) {
-        if (locationName == "Menunggu GPS..." || locationName.isEmpty()) {
-            "Jl. Syuhada No. 12"
-        } else {
-            "Jl. Raya Pusat, Kecamatan $firstRegionPart"
-        }
-    }
-
-    val masjid2Address = remember(locationName) {
-        if (locationName == "Menunggu GPS..." || locationName.isEmpty()) {
-            "Kawasan Sentra Kemakmuran"
-        } else {
-            "Jl. Hijrah No. 4, Kelurahan $firstRegionPart"
+    // 1. Trigger pencarian secara reaktif saat lokasi pengguna berubah/didapatkan
+    LaunchedEffect(userLocation) {
+        userLocation?.let { loc ->
+            exploreViewModel.searchMosques(loc.latitude, loc.longitude)
         }
     }
 
@@ -91,7 +72,7 @@ fun ExploreScreen(
                 .fillMaxSize()
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(bottom = 90.dp) // Berikan ruang agar tidak tertutup floating bar
+            contentPadding = PaddingValues(bottom = 90.dp)
         ) {
             // 1. HEADER EXPLORE
             item {
@@ -160,44 +141,138 @@ fun ExploreScreen(
                 }
             }
 
-            // 3. MASJID TERDEKAT (Simulated Locator)
+            // 3. MASJID TERDEKAT HEADER
             item {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Place,
-                            contentDescription = null,
-                            tint = GoldPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "MASJID TERDEKAT POSISI ANDA",
-                            fontFamily = CinzelFont,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            color = GoldPrimary,
-                            letterSpacing = 1.sp
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        HorizontalDivider(modifier = Modifier.weight(1f), color = DividerLine)
-                    }
-                    Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Place,
+                        contentDescription = null,
+                        tint = GoldPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "MASJID TERDEKAT POSISI ANDA",
+                        fontFamily = CinzelFont,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 11.sp,
+                        color = GoldPrimary,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    HorizontalDivider(modifier = Modifier.weight(1f), color = DividerLine)
+                }
+            }
 
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        MasjidNearbyItem(
-                            name = masjid1Name,
-                            distance = "450 m",
-                            address = "$masjid1Address - verified"
-                        )
-                        MasjidNearbyItem(
-                            name = masjid2Name,
-                            distance = "1.2 km",
-                            address = masjid2Address
-                        )
+            // 4. MASJID TERDEKAT CONTENT STATES
+            val currentLoc = userLocation
+            if (currentLoc == null) {
+                // a & b. State Menunggu GPS / No GPS
+                item {
+                    MasjidGpsStateView(
+                        isLoading = isLocationLoading,
+                        locationName = locationName,
+                        onRefreshLocation = { locationViewModel.refreshLocation() }
+                    )
+                }
+            } else {
+                when (val state = mosqueState) {
+                    is MosqueUiState.Idle -> {
+                        item {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Mempersiapkan pencarian...", color = TextSecondary, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                    is MosqueUiState.Loading -> {
+                        // c. MasjidLoadingState (Placeholder / Shimmer)
+                        items(3) {
+                            ShimmerMosqueItem()
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+                    is MosqueUiState.Success -> {
+                        // d. MasjidSuccessState
+                        item {
+                            Text(
+                                text = "Radius pencarian aktif: ${searchRadius / 1000} km di sekitar $locationName",
+                                color = TextMuted,
+                                fontSize = 10.sp,
+                                modifier = Modifier.padding(bottom = 6.dp)
+                            )
+                        }
+                        items(state.mosques) { mosque ->
+                            MasjidNearbyItem(
+                                mosque = mosque,
+                                onClick = {
+                                    openMosqueInMaps(context, mosque)
+                                }
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                        // Opsi untuk memperlebar pencarian jika butuh area lebih luas
+                        item {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                TextButton(
+                                    onClick = { exploreViewModel.expandSearchRadius(currentLoc.latitude, currentLoc.longitude) },
+                                    enabled = searchRadius < 10000,
+                                    colors = ButtonDefaults.textButtonColors(contentColor = GoldLight)
+                                ) {
+                                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Perluas Area Pencarian (+2 km)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                                IconButton(
+                                    onClick = { exploreViewModel.retry(currentLoc.latitude, currentLoc.longitude) }
+                                ) {
+                                    Icon(Icons.Default.Refresh, contentDescription = "Refresh", tint = GoldPrimary, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                    }
+                    is MosqueUiState.Empty -> {
+                        // e. MasjidEmptyState
+                        item {
+                            MasjidEmptyStateView(
+                                radiusKm = searchRadius / 1000,
+                                onExpandRadius = { exploreViewModel.expandSearchRadius(currentLoc.latitude, currentLoc.longitude) },
+                                onRetry = { exploreViewModel.retry(currentLoc.latitude, currentLoc.longitude) }
+                            )
+                        }
+                    }
+                    is MosqueUiState.NoInternet -> {
+                        // g. MasjidNoInternetState
+                        item {
+                            MasjidNoInternetStateView {
+                                exploreViewModel.retry(currentLoc.latitude, currentLoc.longitude)
+                            }
+                        }
+                    }
+                    is MosqueUiState.NoPermission -> {
+                        item {
+                            MasjidPermissionStateView {
+                                locationViewModel.refreshLocation()
+                            }
+                        }
+                    }
+                    is MosqueUiState.Error -> {
+                        // f. MasjidErrorState
+                        item {
+                            MasjidErrorStateView(
+                                message = state.message,
+                                onRetry = { exploreViewModel.retry(currentLoc.latitude, currentLoc.longitude) }
+                            )
+                        }
                     }
                 }
             }
@@ -268,12 +343,13 @@ fun ExploreGridItem(
 
 @Composable
 fun MasjidNearbyItem(
-    name: String,
-    distance: String,
-    address: String
+    mosque: Mosque,
+    onClick: () -> Unit
 ) {
     IslamicGlassCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         cornerRadius = 10.dp
     ) {
         Row(
@@ -291,23 +367,64 @@ fun MasjidNearbyItem(
             }
             Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = mosque.name,
+                        fontSize = 13.sp,
+                        fontFamily = CinzelFont,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary,
+                        modifier = Modifier.weight(1f, fill = false),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    mosque.rating?.let { rating ->
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Star, contentDescription = "Rating", tint = GoldPrimary, modifier = Modifier.size(12.dp))
+                            Text(
+                                text = " $rating",
+                                fontSize = 10.sp,
+                                fontFamily = NunitoFont,
+                                fontWeight = FontWeight.Bold,
+                                color = TextSecondary
+                            )
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = name,
-                    fontSize = 13.sp,
-                    fontFamily = CinzelFont,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                Text(
-                    text = address,
+                    text = mosque.address,
                     fontSize = 10.sp,
                     fontFamily = NunitoFont,
-                    color = TextSecondary
+                    color = TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val statusText = if (mosque.isOpen == true) "Buka" else if (mosque.isOpen == false) "Tutup" else "N/A"
+                    val statusColor = if (mosque.isOpen == true) Color(0xFF10B981) else if (mosque.isOpen == false) ErrorRed else TextMuted
+                    
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(statusColor.copy(alpha = 0.15f))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = statusText,
+                            fontSize = 8.sp,
+                            fontFamily = NunitoFont,
+                            fontWeight = FontWeight.Bold,
+                            color = statusColor
+                        )
+                    }
+                }
             }
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = distance,
+                text = mosque.formattedDistance,
                 fontSize = 11.sp,
                 fontFamily = CinzelFont,
                 fontWeight = FontWeight.Bold,
@@ -321,4 +438,306 @@ fun MasjidNearbyItem(
     }
 }
 
+@Composable
+fun ShimmerMosqueItem() {
+    IslamicGlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 10.dp
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(DividerLine.copy(alpha = 0.2f))
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.6f)
+                        .height(14.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(DividerLine.copy(alpha = 0.2f))
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.4f)
+                        .height(10.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(DividerLine.copy(alpha = 0.15f))
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Box(
+                modifier = Modifier
+                    .size(width = 50.dp, height = 20.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(DividerLine.copy(alpha = 0.2f))
+            )
+        }
+    }
+}
 
+@Composable
+fun MasjidGpsStateView(
+    isLoading: Boolean,
+    locationName: String,
+    onRefreshLocation: () -> Unit
+) {
+    IslamicGlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 10.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "📍 Mencari Lokasi GPS Anda...",
+                fontSize = 13.sp,
+                fontFamily = CinzelFont,
+                fontWeight = FontWeight.Bold,
+                color = GoldLight,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Status: $locationName",
+                fontSize = 11.sp,
+                fontFamily = NunitoFont,
+                color = TextSecondary,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            if (isLoading) {
+                CircularProgressIndicator(color = GoldPrimary, modifier = Modifier.size(24.dp))
+            } else {
+                Button(
+                    onClick = onRefreshLocation,
+                    colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary)
+                ) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Refresh Lokasi", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MasjidEmptyStateView(
+    radiusKm: Int,
+    onExpandRadius: () -> Unit,
+    onRetry: () -> Unit
+) {
+    IslamicGlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 10.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp, horizontal = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("🕌 🚫", fontSize = 28.sp)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Masjid Tidak Ditemukan",
+                fontSize = 14.sp,
+                fontFamily = CinzelFont,
+                fontWeight = FontWeight.Bold,
+                color = GoldLight,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Tidak ada masjid atau musholla terdeteksi dalam radius $radiusKm km.",
+                fontSize = 11.sp,
+                fontFamily = NunitoFont,
+                color = TextSecondary,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Button(
+                    onClick = onExpandRadius,
+                    colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Perluas Area", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                }
+                OutlinedButton(
+                    onClick = onRetry,
+                    border = BorderStroke(1.dp, GoldPrimary),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GoldPrimary)
+                ) {
+                    Text("Coba Lagi", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MasjidNoInternetStateView(
+    onRetry: () -> Unit
+) {
+    IslamicGlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 10.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("🌐 ❌", fontSize = 28.sp)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Koneksi Offline",
+                fontSize = 14.sp,
+                fontFamily = CinzelFont,
+                fontWeight = FontWeight.Bold,
+                color = GoldLight,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Periksa koneksi internet Anda untuk memuat lokasi masjid real.",
+                fontSize = 11.sp,
+                fontFamily = NunitoFont,
+                color = TextSecondary,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onRetry,
+                colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Coba Lagi", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+            }
+        }
+    }
+}
+
+@Composable
+fun MasjidPermissionStateView(
+    onRequestPermission: () -> Unit
+) {
+    IslamicGlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 10.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp, horizontal = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("🔒 📍", fontSize = 28.sp)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Izin Lokasi Diperlukan",
+                fontSize = 14.sp,
+                fontFamily = CinzelFont,
+                fontWeight = FontWeight.Bold,
+                color = GoldLight,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Aktifkan GPS & izinkan akses lokasi untuk mencari masjid terdekat secara presisi.",
+                fontSize = 11.sp,
+                fontFamily = NunitoFont,
+                color = TextSecondary,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onRequestPermission,
+                colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Izinkan & Refresh", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+            }
+        }
+    }
+}
+
+@Composable
+fun MasjidErrorStateView(
+    message: String,
+    onRetry: () -> Unit
+) {
+    IslamicGlassCard(
+        modifier = Modifier.fillMaxWidth(),
+        cornerRadius = 10.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp, horizontal = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("⚠️", fontSize = 28.sp)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "Gagal Memuat Data",
+                fontSize = 14.sp,
+                fontFamily = CinzelFont,
+                fontWeight = FontWeight.Bold,
+                color = ErrorRed,
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = message,
+                fontSize = 11.sp,
+                fontFamily = NunitoFont,
+                color = TextSecondary,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onRetry,
+                colors = ButtonDefaults.buttonColors(containerColor = GoldPrimary),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Coba Lagi", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+            }
+        }
+    }
+}
+
+private fun openMosqueInMaps(context: android.content.Context, mosque: Mosque) {
+    try {
+        val query = Uri.encode(mosque.name)
+        val uri = "geo:${mosque.lat},${mosque.lon}?q=$query"
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+        intent.setPackage("com.google.android.apps.maps")
+        context.startActivity(intent)
+    } catch (e: Exception) {
+        try {
+            val webQuery = Uri.encode(mosque.name)
+            val webUri = "https://www.google.com/maps/search/?api=1&query=$webQuery"
+            val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUri))
+            context.startActivity(webIntent)
+        } catch (ex: Exception) {
+            Log.e("ExploreScreen", "Semua intent navigasi peta gagal dijalankan", ex)
+        }
+    }
+}

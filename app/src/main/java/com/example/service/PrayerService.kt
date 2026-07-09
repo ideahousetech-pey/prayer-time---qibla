@@ -10,6 +10,7 @@ import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.CertificatePinner
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -37,8 +38,19 @@ class PrayerService(private val context: Context) {
     // Konfigurasi HTTP Network client dengan logging interceptor, Cache (5MB), dan RetryInterceptor
     private val okHttpCache = okhttp3.Cache(context.cacheDir, 5 * 1024 * 1024L)
 
+    // SSL Pinning Configuration
+    private val certificatePinner = CertificatePinner.Builder()
+        .add("api.aladhan.com", "sha256/k2v657xBsOVe1PQRwOsH6S+9iIJ7RYg2lffa6BNo+Sg=") // Primary Pin
+        .add("api.aladhan.com", "sha256/C5+T0uXv39Y4K4/jPZkY0+746V2I44gU7lT9Uu5m2l8=") // Let's Encrypt Backup 1
+        .add("api.aladhan.com", "sha256/YLh1dUR9y6KBA1COrkcK8o67K1g969M+A7fUv1gG3P8=") // Let's Encrypt Backup 2
+        .add("aladhan.com", "sha256/k2v657xBsOVe1PQRwOsH6S+9iIJ7RYg2lffa6BNo+Sg=")
+        .add("aladhan.com", "sha256/C5+T0uXv39Y4K4/jPZkY0+746V2I44gU7lT9Uu5m2l8=")
+        .build()
+
     private val httpClient = OkHttpClient.Builder()
         .cache(okHttpCache)
+        .certificatePinner(certificatePinner)
+        .addInterceptor(SecurityInterceptor()) // Security Interceptor
         .addInterceptor(HttpLoggingInterceptor().apply {
             // Logging hanya aktif saat debug, TIDAK di release
             level = if (BuildConfig.DEBUG)
@@ -47,6 +59,10 @@ class PrayerService(private val context: Context) {
                 HttpLoggingInterceptor.Level.NONE
         })
         .addInterceptor(RetryInterceptor(context))
+        .hostnameVerifier { hostname, session ->
+            val defaultVerifier = javax.net.ssl.HttpsURLConnection.getDefaultHostnameVerifier()
+            defaultVerifier.verify(hostname, session) && (hostname == "api.aladhan.com" || hostname == "aladhan.com")
+        }
         .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
         .build()
