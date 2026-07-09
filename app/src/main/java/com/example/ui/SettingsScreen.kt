@@ -46,6 +46,12 @@ import id.ideahousetech.prayertime_qibla.utils.SecurePrefs
 import id.ideahousetech.prayertime_qibla.utils.PrefsKeys
 import id.ideahousetech.prayertime_qibla.utils.KeyStoreDiagnostics
 import id.ideahousetech.prayertime_qibla.utils.PrefsMigration
+import id.ideahousetech.prayertime_qibla.utils.FileSecurityUtils
+import id.ideahousetech.prayertime_qibla.utils.FileValidationResult
+import id.ideahousetech.prayertime_qibla.utils.TrustedAdzanDomains
+import id.ideahousetech.prayertime_qibla.utils.SecureDownloadHelper
+import id.ideahousetech.prayertime_qibla.utils.AppSecurityManager
+import id.ideahousetech.prayertime_qibla.ui.components.SecurityStatusBadge
 import id.ideahousetech.prayertime_qibla.viewmodel.LocationViewModel
 import id.ideahousetech.prayertime_qibla.viewmodel.PrayerViewModel
 import id.ideahousetech.prayertime_qibla.service.NotificationService
@@ -132,9 +138,6 @@ fun SettingsScreen(
             
             val urlsToTry = mutableListOf<String>()
             urlsToTry.add(adzan.url)
-            if (adzan.url.startsWith("https://")) {
-                urlsToTry.add(adzan.url.replace("https://", "http://"))
-            }
             
             val fallbackUrl = when (adzan.displayName) {
                 "Adzan Makkah" -> "https://raw.githubusercontent.com/sidandv/My-Azan/master/Azan.mp3"
@@ -143,103 +146,28 @@ fun SettingsScreen(
                 else -> if (isSubuh) "https://www.islamcan.com/audio/adhans/adhan2.mp3" else "https://raw.githubusercontent.com/sidandv/My-Azan/master/Azan.mp3"
             }
             urlsToTry.add(fallbackUrl)
-            urlsToTry.add(fallbackUrl.replace("https://", "http://"))
             urlsToTry.add("https://raw.githubusercontent.com/sidandv/My-Azan/master/Azan.mp3")
             
-            val trustAllCerts = arrayOf<javax.net.ssl.TrustManager>(object : javax.net.ssl.X509TrustManager {
-                override fun getAcceptedIssuers(): Array<java.security.cert.X509Certificate>? = null
-                override fun checkClientTrusted(certs: Array<java.security.cert.X509Certificate>?, authType: String?) {}
-                override fun checkServerTrusted(certs: Array<java.security.cert.X509Certificate>?, authType: String?) {}
-            })
-            val sc = javax.net.ssl.SSLContext.getInstance("SSL")
-            sc.init(null, trustAllCerts, java.security.SecureRandom())
-            
-            for ((idx, attemptUrl) in urlsToTry.withIndex()) {
-                if (idx > 0) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(context, "Mencoba server cadangan (${idx + 1}/${urlsToTry.size})...", Toast.LENGTH_SHORT).show()
+            for (attemptUrl in urlsToTry) {
+                // Skor domain whitelist
+                if (!TrustedAdzanDomains.isUrlTrusted(attemptUrl)) {
+                    continue
+                }
+                
+                val result = SecureDownloadHelper.downloadAdzan(context, attemptUrl, targetFile) { progress ->
+                    if (progress >= 0) {
+                        downloadProgress = progress
+                    } else {
+                        // Incremental update untuk file tanpa content length
+                        downloadProgress = (downloadProgress + 0.05f).coerceAtMost(0.95f)
                     }
                 }
-                try {
-                    var currentUrlStr = attemptUrl
-                    var connection: java.net.HttpURLConnection? = null
-                    var redirectCount = 0
-                    val maxRedirects = 6
-                    
-                    while (redirectCount < maxRedirects) {
-                        val url = java.net.URL(currentUrlStr)
-                        connection = url.openConnection() as java.net.HttpURLConnection
-                        connection.instanceFollowRedirects = false
-                        connection.setRequestProperty("User-Agent", "Mozilla/5.0")
-                        connection.connectTimeout = 15000
-                        connection.readTimeout = 15000
-                        
-                        if (connection is javax.net.ssl.HttpsURLConnection) {
-                            connection.sslSocketFactory = sc.socketFactory
-                            connection.hostnameVerifier = javax.net.ssl.HostnameVerifier { _, _ -> true }
-                        }
-                        
-                        val status = connection.responseCode
-                        if (status == java.net.HttpURLConnection.HTTP_MOVED_TEMP || 
-                            status == java.net.HttpURLConnection.HTTP_MOVED_PERM || 
-                            status == 303 || status == 307 || status == 308) {
-                            
-                            val newUrl = connection.getHeaderField("Location")
-                            if (newUrl != null) {
-                                val parentUrl = java.net.URL(currentUrlStr)
-                                currentUrlStr = java.net.URL(parentUrl, newUrl).toString()
-                                redirectCount++
-                                connection.disconnect()
-                                continue
-                            }
-                        }
-                        break
-                    }
-                    
-                    if (connection == null) throw Exception("Koneksi gagal.")
-                    
-                    val status = connection.responseCode
-                    if (status !in 200..299) throw Exception("HTTP $status")
-                    
-                    val fileLength = connection.contentLength
-                    val input = java.io.BufferedInputStream(connection.inputStream, 8192)
-                    val tmpFile = File(context.filesDir, "${targetFileName}.tmp")
-                    val output = FileOutputStream(tmpFile)
-                    val data = ByteArray(8192)
-                    var total = 0L
-                    var count: Int
-                    
-                    while (input.read(data).also { count = it } != -1) {
-                        total += count
-                        if (fileLength > 0) {
-                            downloadProgress = total.toFloat() / fileLength.toFloat()
-                        } else {
-                            downloadProgress = (downloadProgress + 0.05f).coerceAtMost(0.95f)
-                        }
-                        output.write(data, 0, count)
-                    }
-                    
-                    output.flush()
-                    output.close()
-                    input.close()
-                    connection.disconnect()
-                    
-                    if (tmpFile.exists() && tmpFile.length() > 50000) {
-                        if (targetFile.exists()) targetFile.delete()
-                        if (tmpFile.renameTo(targetFile)) {
-                            // success
-                        } else {
-                            tmpFile.copyTo(targetFile, overwrite = true)
-                            tmpFile.delete()
-                        }
-                        success = true
-                        break
-                    } else {
-                        tmpFile.delete()
-                        throw Exception("File kosong atau tidak lengkap.")
-                    }
-                } catch (e: Exception) {
-                    errorMsg = e.localizedMessage ?: "Koneksi terputus."
+                
+                if (result.isSuccess) {
+                    success = true
+                    break
+                } else {
+                    errorMsg = result.exceptionOrNull()?.localizedMessage ?: "Unduhan gagal."
                 }
             }
             
@@ -288,6 +216,15 @@ fun SettingsScreen(
     }
 
     fun saveAudioFile(uri: Uri, isFajr: Boolean) {
+        // 1. Jalankan validasi keamanan file yang ketat
+        when (val validationResult = FileSecurityUtils.validateAudioFile(context, uri)) {
+            is FileValidationResult.Invalid -> {
+                Toast.makeText(context, "File Ditolak: ${validationResult.reason}", Toast.LENGTH_LONG).show()
+                return
+            }
+            FileValidationResult.Valid -> { /* Lolos validasi */ }
+        }
+
         try {
             val contentResolver = context.contentResolver
             var origName = if (isFajr) "adzan_fajr_kustom.mp3" else "adzan_kustom.mp3"
@@ -295,29 +232,47 @@ fun SettingsScreen(
                 if (cursor.moveToFirst()) {
                     val nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                     if (nameIdx != -1) {
-                        origName = cursor.getString(nameIdx)
+                        val retrievedName = cursor.getString(nameIdx)
+                        if (retrievedName != null) {
+                            origName = retrievedName
+                        }
                     }
                 }
             }
 
+            // Sanitasi nama file secara menyeluruh demi keamanan Path Traversal
+            val sanitizedName = FileSecurityUtils.sanitizeFileName(origName)
+
             val targetFileName = if (isFajr) "adzan_fajr.mp3" else "adzan.mp3"
             val targetFile = File(context.filesDir, targetFileName)
+            val tempFile = File(context.cacheDir, "temp_upload_save_${System.currentTimeMillis()}.mp3")
 
+            // Salin ke temp file terlebih dahulu sebelum dipindahkan ke area produksi
             contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(targetFile).use { output ->
+                tempFile.outputStream().use { output ->
                     input.copyTo(output)
                 }
             }
 
-            if (isFajr) {
-                prefs.edit().putString(PrefsKeys.CUSTOM_ADZAN_FAJR_NAME, origName).apply()
-                customAdzanFajrName = origName
+            if (tempFile.exists()) {
+                if (targetFile.exists()) targetFile.delete()
+                if (!tempFile.renameTo(targetFile)) {
+                    tempFile.copyTo(targetFile, overwrite = true)
+                    tempFile.delete()
+                }
             } else {
-                prefs.edit().putString(PrefsKeys.CUSTOM_ADZAN_NAME, origName).apply()
-                customAdzanName = origName
+                throw Exception("Gagal membuat salinan temporer berkas.")
             }
 
-            Toast.makeText(context, "Berhasil diunggah: $origName", Toast.LENGTH_LONG).show()
+            if (isFajr) {
+                prefs.edit().putString(PrefsKeys.CUSTOM_ADZAN_FAJR_NAME, sanitizedName).apply()
+                customAdzanFajrName = sanitizedName
+            } else {
+                prefs.edit().putString(PrefsKeys.CUSTOM_ADZAN_NAME, sanitizedName).apply()
+                customAdzanName = sanitizedName
+            }
+
+            Toast.makeText(context, "Berhasil diunggah: $sanitizedName", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
             Toast.makeText(context, "Gagal memproses file audio: ${e.message}", Toast.LENGTH_LONG).show()
         }
@@ -1144,6 +1099,53 @@ fun SettingsScreen(
                     Spacer(Modifier.height(8.dp))
                     IslamicGlassCard(modifier = Modifier.fillMaxWidth()) {
                         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            // 1. Status Proteksi Runtime (Root, Emulator, Integrity)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(GoldGlow),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Security,
+                                        contentDescription = null,
+                                        tint = GoldPrimary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Integritas & Lingkungan",
+                                        fontSize = 12.sp,
+                                        fontFamily = CinzelFont,
+                                        fontWeight = FontWeight.Bold,
+                                        color = GoldLight
+                                    )
+                                    Text(
+                                        text = if (AppSecurityManager.isDeviceRooted) {
+                                            "Akses Root Aktif (Gentle Warning)"
+                                        } else if (!AppSecurityManager.isAppIntegrityValid) {
+                                            "APK Dimodifikasi / Tampered!"
+                                        } else {
+                                            "Aman dari Modifikasi & Debugging"
+                                        },
+                                        fontSize = 9.sp,
+                                        fontFamily = NunitoFont,
+                                        color = TextSecondary
+                                    )
+                                }
+                                SecurityStatusBadge(level = AppSecurityManager.securityLevel)
+                            }
+
+                            HorizontalDivider(color = DividerLine, thickness = 0.5.dp)
+
+                            // 2. Enkripsi KeyStore
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,

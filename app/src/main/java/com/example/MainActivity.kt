@@ -87,6 +87,8 @@ import id.ideahousetech.prayertime_qibla.ui.SettingsScreen
 import id.ideahousetech.prayertime_qibla.ui.components.FloatingBottomBar
 import id.ideahousetech.prayertime_qibla.utils.PrefsKeys
 import id.ideahousetech.prayertime_qibla.utils.AppConfig
+import id.ideahousetech.prayertime_qibla.utils.AppSecurityManager
+import id.ideahousetech.prayertime_qibla.ui.components.SecurityWarningDialog
 import androidx.compose.material.icons.filled.Cached
 import androidx.compose.material.icons.filled.Explore
 import androidx.compose.material.icons.filled.Settings
@@ -100,6 +102,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Inisialisasi Security Manager sebelum render UI
+        AppSecurityManager.initialize(this)
 
         // 1. Load theme SYNCHRONOUSLY before setContent to prevent any theme flash/flicker
         val context = this
@@ -185,6 +190,14 @@ fun MainLayout(
     val context = LocalContext.current
     var currentScreen by remember { mutableStateOf(AppScreen.SHOLAT) }
     var screenHistory by remember { mutableStateOf(listOf<AppScreen>()) }
+
+    var showSecurityWarning by remember { mutableStateOf(AppSecurityManager.shouldShowSecurityWarning()) }
+    if (showSecurityWarning) {
+        SecurityWarningDialog(
+            securityLevel = AppSecurityManager.securityLevel,
+            onDismiss = { showSecurityWarning = false }
+        )
+    }
 
     fun navigateTo(screen: AppScreen) {
         if (currentScreen != screen) {

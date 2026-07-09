@@ -15,12 +15,12 @@
         <!-- SSL Pinning untuk aladhan.com -->
         <!-- Sertakan setidaknya satu pin cadangan (backup pin) untuk menghindari pemblokiran jika sertifikat diperbarui -->
         <pin-set expiration="2027-12-31">
-            <!-- Primary Pin (Misal pin saat ini dari certificate chain aladhan.com) -->
-            <pin digest="SHA-256">k2v657xBsOVe1PQRwOsH6S+9iIJ7RYg2lffa6BNo+Sg=</pin>
-            <!-- Backup Pin 1 (Let's Encrypt Authority R3 / Root) -->
-            <pin digest="SHA-256">C5+T0uXv39Y4K4/jPZkY0+746V2I44gU7lT9Uu5m2l8=</pin>
-            <!-- Backup Pin 2 (ISRG Root X1) -->
-            <pin digest="SHA-256">C5+T0uXv39Y4K4/jPZkY0+746V2I44gU7lT9Uu5m2l8=</pin>
+            <!-- Primary Pin (ZeroSSL Leaf) -->
+            <pin digest="SHA-256">bHNfE1QgjMtEXmwEnjrKvgNKkm12O5mCNV9obizl7P0=</pin>
+            <!-- Backup Pin 1 (ZeroSSL Intermediate) -->
+            <pin digest="SHA-256">rnhtVs65ADYfQGtMuB0jq2kZwwHy6/iqnBiUKcK1m0Y=</pin>
+            <!-- Backup Pin 2 (Sectigo Root) -->
+            <pin digest="SHA-256">Douxi77vs4G+Ib/BogbTFymEYq0QSFXwSgVCaZcI09Q=</pin>
         </pin-set>
     </domain-config>
 

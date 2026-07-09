@@ -40,11 +40,12 @@ class PrayerService(private val context: Context) {
 
     // SSL Pinning Configuration
     private val certificatePinner = CertificatePinner.Builder()
-        .add("api.aladhan.com", "sha256/k2v657xBsOVe1PQRwOsH6S+9iIJ7RYg2lffa6BNo+Sg=") // Primary Pin
-        .add("api.aladhan.com", "sha256/C5+T0uXv39Y4K4/jPZkY0+746V2I44gU7lT9Uu5m2l8=") // Let's Encrypt Backup 1
-        .add("api.aladhan.com", "sha256/YLh1dUR9y6KBA1COrkcK8o67K1g969M+A7fUv1gG3P8=") // Let's Encrypt Backup 2
-        .add("aladhan.com", "sha256/k2v657xBsOVe1PQRwOsH6S+9iIJ7RYg2lffa6BNo+Sg=")
-        .add("aladhan.com", "sha256/C5+T0uXv39Y4K4/jPZkY0+746V2I44gU7lT9Uu5m2l8=")
+        .add("api.aladhan.com", "sha256/bHNfE1QgjMtEXmwEnjrKvgNKkm12O5mCNV9obizl7P0=") // ZeroSSL Leaf Pin
+        .add("api.aladhan.com", "sha256/rnhtVs65ADYfQGtMuB0jq2kZwwHy6/iqnBiUKcK1m0Y=") // ZeroSSL Intermediate Pin
+        .add("api.aladhan.com", "sha256/Douxi77vs4G+Ib/BogbTFymEYq0QSFXwSgVCaZcI09Q=") // Sectigo Root Pin
+        .add("aladhan.com", "sha256/bHNfE1QgjMtEXmwEnjrKvgNKkm12O5mCNV9obizl7P0=")
+        .add("aladhan.com", "sha256/rnhtVs65ADYfQGtMuB0jq2kZwwHy6/iqnBiUKcK1m0Y=")
+        .add("aladhan.com", "sha256/Douxi77vs4G+Ib/BogbTFymEYq0QSFXwSgVCaZcI09Q=")
         .build()
 
     private val httpClient = OkHttpClient.Builder()

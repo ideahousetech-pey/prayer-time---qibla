@@ -6,13 +6,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- Izin Lokasi Perangkat Realtime GPS -->
+    <!-- Izin Lokasi Perangkat Realtime GPS (Fine untuk Kompas Kiblat, Coarse untuk jadwal Sholat harian) -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 
     <!-- Izin Alarm Presisi Tepat Sasaran di Android 12+ (S+) -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
     <!-- Izin Post Pemberitahuan Notifikasi di Android 13+ (Tiramisu+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
@@ -22,9 +21,14 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
 
-    <!-- Izin Tambahan -->
+    <!-- Izin Tambahan & Pemulihan Sistem (Critical untuk reschedule alarm pasca-reboot) -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- Deklarasi Fitur Perangkat Lunak & Keras (required=false agar tetap dapat diinstal di TV/Tablet tanpa sensor) -->
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <uses-feature android:name="android.hardware.sensor.compass" android:required="false" />
 
     <!-- Proteksi Keamanan Widget dan Receiver melalui Signature Permission -->
     <permission
@@ -63,6 +67,18 @@
             <intent-filter>
                 <action android:name="id.ideahousetech.prayertime_qibla.ACTION_PLAY_ADZAN" />
                 <action android:name="id.ideahousetech.prayertime_qibla.ACTION_STOP_ADZAN" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Registrasi BootReceiver untuk memulihkan alarm harian saat reboot & update -->
+        <receiver
+            android:name=".service.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </receiver>
 
