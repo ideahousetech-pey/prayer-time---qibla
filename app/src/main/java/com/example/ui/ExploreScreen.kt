@@ -3,6 +3,7 @@ package id.ideahousetech.prayertime_qibla.ui
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,6 +30,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import id.ideahousetech.prayertime_qibla.AppScreen
 import id.ideahousetech.prayertime_qibla.model.Mosque
 import id.ideahousetech.prayertime_qibla.model.MosqueUiState
@@ -51,14 +55,31 @@ fun ExploreScreen(
     val userLocation by locationViewModel.userLocation.collectAsState()
     val locationName by locationViewModel.locationName.collectAsState()
     val isLocationLoading by locationViewModel.isLoading.collectAsState()
+    val isTrackingActive by locationViewModel.isTrackingActive.collectAsState()
 
     val mosqueState by exploreViewModel.mosqueState.collectAsState()
     val searchRadius by exploreViewModel.searchRadius.collectAsState()
 
-    // 1. Trigger pencarian secara reaktif saat lokasi pengguna berubah/didapatkan
-    LaunchedEffect(userLocation) {
+    // 1. FIX UTAMA: Trigger pencarian secara reaktif saat latitude/longitude berubah
+    LaunchedEffect(userLocation?.latitude, userLocation?.longitude) {
         userLocation?.let { loc ->
             exploreViewModel.searchMosques(loc.latitude, loc.longitude)
+        }
+    }
+
+    // 2. Lifecycle observer untuk start/stop tracking secara otomatis
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                locationViewModel.startLocationTracking()
+            } else if (event == Lifecycle.Event.ON_PAUSE) {
+                locationViewModel.stopLocationTracking()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -165,6 +186,11 @@ fun ExploreScreen(
                     Spacer(modifier = Modifier.width(6.dp))
                     HorizontalDivider(modifier = Modifier.weight(1f), color = DividerLine)
                 }
+            }
+
+            // Live Tracking Indicator
+            item {
+                LiveTrackingIndicator(isActive = isTrackingActive)
             }
 
             // 4. MASJID TERDEKAT CONTENT STATES
@@ -276,6 +302,56 @@ fun ExploreScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Live Tracking Indicator dengan animasi pulsa dot hijau cerah.
+ */
+@Composable
+fun LiveTrackingIndicator(isActive: Boolean) {
+    if (!isActive) return
+
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 1.0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulse_alpha"
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF10B981).copy(alpha = 0.1f))
+            .border(0.5.dp, Color(0xFF10B981).copy(alpha = 0.25f), RoundedCornerShape(8.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF10B981).copy(alpha = alpha))
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "GPS Aktif & Tracking",
+                color = Color(0xFF10B981),
+                fontSize = 11.sp,
+                fontFamily = NunitoFont,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp
+            )
         }
     }
 }
@@ -724,20 +800,31 @@ fun MasjidErrorStateView(
 }
 
 private fun openMosqueInMaps(context: android.content.Context, mosque: Mosque) {
-    try {
-        val query = Uri.encode(mosque.name)
-        val uri = "geo:${mosque.lat},${mosque.lon}?q=$query"
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
-        intent.setPackage("com.google.android.apps.maps")
-        context.startActivity(intent)
-    } catch (e: Exception) {
+    val query = Uri.encode(mosque.name)
+    val uri = "geo:${mosque.lat},${mosque.lon}?q=$query"
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri)).apply {
+        setPackage("com.google.android.apps.maps")
+    }
+
+    val pm = context.packageManager
+    if (intent.resolveActivity(pm) != null) {
         try {
-            val webQuery = Uri.encode(mosque.name)
-            val webUri = "https://www.google.com/maps/search/?api=1&query=$webQuery"
-            val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUri))
-            context.startActivity(webIntent)
-        } catch (ex: Exception) {
-            Log.e("ExploreScreen", "Semua intent navigasi peta gagal dijalankan", ex)
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            openInBrowserFallback(context, mosque)
         }
+    } else {
+        openInBrowserFallback(context, mosque)
+    }
+}
+
+private fun openInBrowserFallback(context: android.content.Context, mosque: Mosque) {
+    try {
+        val webQuery = Uri.encode(mosque.name)
+        val webUri = "https://www.google.com/maps/search/?api=1&query=$webQuery"
+        val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse(webUri))
+        context.startActivity(webIntent)
+    } catch (ex: Exception) {
+        Log.e("ExploreScreen", "Semua intent navigasi peta gagal dijalankan", ex)
     }
 }

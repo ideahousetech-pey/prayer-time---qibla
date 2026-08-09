@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 
 /**
  * ViewModel untuk mengelola daftar masjid terdekat, melacak status pencarian,
- * serta menangani optimasi batasan API (cooldown 30s & threshold jarak 500m).
+ * serta menangani optimasi batasan API (cooldown 15s & threshold jarak 100m).
  */
 class ExploreViewModel(
     private val context: Context,
@@ -35,7 +35,7 @@ class ExploreViewModel(
 
     /**
      * Memulai proses pencarian masjid berdasarkan koordinat GPS saat ini.
-     * Mengimplementasikan optimasi cooldown 30 detik & threshold pergerakan 500 meter.
+     * Mengimplementasikan optimasi cooldown 15 detik & threshold pergerakan 100 meter.
      */
     fun searchMosques(lat: Double, lon: Double, forceRefresh: Boolean = false) {
         if (!mosqueService.isValidCoordinate(lat, lon)) {
@@ -51,18 +51,19 @@ class ExploreViewModel(
             return
         }
 
-        // 2. Optimasi Cooldown (30 detik) jika tidak dipaksa refresh
-        if (!forceRefresh && (currentTime - lastSearchTime < 30_000)) {
-            Log.i("ExploreViewModel", "Pencarian diabaikan: Cooldown 30 detik aktif.")
+        // 2. Optimasi Cooldown (15 detik) jika tidak dipaksa refresh
+        if (!forceRefresh && (currentTime - lastSearchTime < 15_000)) {
+            Log.i("ExploreViewModel", "Pencarian diabaikan: Cooldown 15 detik aktif. Sisa waktu: ${(15_000 - (currentTime - lastSearchTime)) / 1000}s")
             return
         }
 
-        // 3. Optimasi Jarak Threshold (500 meter) jika tidak dipaksa refresh
+        // 3. Optimasi Jarak Threshold (100 meter) jika tidak dipaksa refresh
         val lastLoc = lastSearchLocation
         if (!forceRefresh && lastLoc != null) {
             val distanceMoved = mosqueService.haversineDistance(lastLoc.first, lastLoc.second, lat, lon)
-            if (distanceMoved < 500.0 && _mosqueState.value is MosqueUiState.Success) {
-                Log.i("ExploreViewModel", "Pencarian diabaikan: User bergeser kurang dari 500m ($distanceMoved m).")
+            Log.d("ExploreViewModel", "Pengguna bergeser sejauh: $distanceMoved meter dari pencarian sebelumnya.")
+            if (distanceMoved < 100.0 && (_mosqueState.value is MosqueUiState.Success || _mosqueState.value is MosqueUiState.Empty)) {
+                Log.i("ExploreViewModel", "Pencarian diabaikan: User bergeser kurang dari 100m ($distanceMoved m).")
                 return
             }
         }
@@ -71,13 +72,19 @@ class ExploreViewModel(
         viewModelScope.launch {
             _mosqueState.value = MosqueUiState.Loading
             try {
+                Log.d("ExploreViewModel", "Mengeksekusi pencarian masjid terdekat pada koordinat ($lat, $lon) radius ${_searchRadius.value} m...")
                 val list = mosqueService.searchNearbyMosques(lat, lon, _searchRadius.value)
+                
+                // FIX BUG: lastSearchTime dan lastSearchLocation HARUS diupdate baik saat Success MAUPUN Empty
+                lastSearchLocation = Pair(lat, lon)
+                lastSearchTime = System.currentTimeMillis()
+                
                 if (list.isEmpty()) {
+                    Log.d("ExploreViewModel", "Hasil pencarian kosong.")
                     _mosqueState.value = MosqueUiState.Empty
                 } else {
+                    Log.d("ExploreViewModel", "Berhasil menemukan ${list.size} masjid.")
                     _mosqueState.value = MosqueUiState.Success(list)
-                    lastSearchLocation = Pair(lat, lon)
-                    lastSearchTime = System.currentTimeMillis()
                 }
             } catch (e: Exception) {
                 Log.e("ExploreViewModel", "Error fetching mosques", e)
